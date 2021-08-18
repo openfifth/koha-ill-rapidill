@@ -338,8 +338,56 @@ sub create_request {
         }
     }
     
+    # Make the request
     my $response = $self->{_api}->InsertRequest( $metadata, $self->{borrower} );
 
+    if ($response->{parameters}->{InsertRequestResult}->{IsSuccessful}) {
+        # Add the Rapid request ID to our submission's metadata
+        my $rapid_id = $response->{parameters}->{InsertRequestResult}->{RapidRequestId};
+        if ($rapid_id) {
+            Koha::Illrequestattribute->new({
+                illrequest_id => $submission->illrequest_id,
+                type          => 'RapidRequestId',
+                value         => $rapid_id
+            })->store;
+        }
+        # Update the submission status
+        $submission->status('REQ');
+        return 1;
+    }
+    return 0;
+}
+
+=head3 metadata
+
+Return a hashref containing canonical values from the key/value
+illrequestattributes store
+
+=cut
+
+sub metadata {
+    my ( $self, $request ) = @_;
+
+    my $attrs = $request->illrequestattributes;
+    my $fields = $self->fieldmap;
+
+    my $metadata = {};
+
+    while (my $attr = $attrs->next) {
+        $metadata->{$fields->{$attr->type}->{label}} = $attr->value;
+    }
+
+    return $metadata;
+}
+
+=head3 status_graph
+
+This backend provides no additional actions on top of the core_status_graph
+
+=cut
+
+sub status_graph {
+    return {};
 }
 
 sub name {
