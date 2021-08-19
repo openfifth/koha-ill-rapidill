@@ -151,11 +151,19 @@ sub create {
         }
         else {
             # We can submit a request directly to RapidILL
-            $self->create_request($params);
+            my $result = $self->create_request($params);
 
-            $response->{stage}  = "commit";
-            $response->{next} = "illview";
-            $response->{params} = $params;
+            if ($result->{success}) {
+                $response->{stage}  = "commit";
+                $response->{next} = "illview";
+                $response->{params} = $params;
+            } else {
+                $response->{error}  = 1;
+                $response->{stage}  = 'commit';
+                $response->{next} = "illview";
+                $response->{params} = $params;
+                $response->{message} = $result->{message};
+            }
 
             return $response;
         }
@@ -341,8 +349,9 @@ sub create_request {
     # Make the request
     my $response = $self->{_api}->InsertRequest( $metadata, $self->{borrower} );
 
+    # If the call to RapidILL was successful,
+    # add the Rapid request ID to our submission's metadata
     if ($response->{parameters}->{InsertRequestResult}->{IsSuccessful}) {
-        # Add the Rapid request ID to our submission's metadata
         my $rapid_id = $response->{parameters}->{InsertRequestResult}->{RapidRequestId};
         if ($rapid_id) {
             Koha::Illrequestattribute->new({
@@ -353,9 +362,18 @@ sub create_request {
         }
         # Update the submission status
         $submission->status('REQ');
-        return 1;
+        return { success => 1 };
     }
-    return 0;
+    # The call to RapidILL failed for some reason. Add the message we got back from the API
+    # to the submission's Staff Notes
+    $submission->notesstaff(
+        join("\n\n", ($submission->notesstaff || "", "RapidILL request failed:\n" . $response->{parameters}->{InsertRequestResult}->{VerificationNote}))
+    )->store;
+    # Return the message
+    return {
+        success => 0,
+        message => $response->{parameters}->{InsertRequestResult}->{VerificationNote}
+    };
 }
 
 =head3 metadata
