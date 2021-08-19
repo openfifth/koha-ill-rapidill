@@ -170,6 +170,50 @@ sub create {
     }
 }
 
+=head3 cancel
+
+   Attempt to cancel a request with Rapid 
+
+=cut
+
+sub cancel {
+    my ($self, $params) = @_;
+
+    # Update the submission's status
+    $params->{request}->status("CANCREQ")->store;
+
+    # Find the submission's Rapid ID
+    my $rapid_request_id = $params->{request}->illrequestattributes->find({
+        illrequest_id => $params->{request}->illrequest_id,
+        type          => "RapidRequestId"
+    });
+
+    if (!$rapid_request_id) {
+        # No Rapid request, we don't need to do anything else
+        return { success => 1};
+    }
+
+    # This submission was submitted to Rapid, so we can try to cancel it there
+    my $response = $self->{_api}->UpdateRequest(
+        $rapid_request_id,
+        "Cancel"
+    );
+
+    # If the cancellation was successful, note that in Staff notes
+    if ($response->{parameters}->{UpdateRequestResult}->{IsSuccessful}) {
+        $params->{request}->notesstaff(
+            join("\n\n", ($params->{request}->notesstaff || "", "Cancelled with RapidILL"))
+        )->store;
+        return { success => 1};
+    }
+
+    # Return the failure message
+    return {
+        success => 0,
+        message => $response->{parameters}->{UpdateRequestResult}->{VerificationNote}
+    };
+}
+
 =head3 _validate_metadata
 
 Test if we have sufficient metadata to create a request for

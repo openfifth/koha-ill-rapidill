@@ -59,36 +59,76 @@ Make a call to the InsertRequest API endpoint to create a new request
 sub InsertRequest {
     my ($self, $metadata, $borrower) = @_;
 
-    # Base request
+    my $credentials = $self->_get_credentials;
+
+    # Base request including passed metadata and credentials
     my $req = {
         input => {
-            UserName             => $self->{config}->{username},
-            Password             => $self->{config}->{password},
-            RequestingRapidCode  => $self->{config}->{requesting_rapid_code},
-            RequestingBranchName => $self->{config}->{requesting_branch_name},
             PatronId             => $borrower->borrowernumber,
             PatronName           => join (" ", ($borrower->firstname, $borrower->surname)),
             PatronNotes          => "== THIS IS A TEST - PLEASE IGNORE! ==",
             ClientAppName        => "Koha RapidILL client",
             ClientAppVersion     => $self->{version},
             IsHoldingsCheckOnly  => 0,
-            DoBlockLocalOnly     => 0
+            DoBlockLocalOnly     => 0,
+            %{$credentials},
+            %{$metadata}
         }
     };
 
     $req->{input}->{PatronEmail} = $borrower->email if $borrower->email;
-
-    # Merge in any metadata we've been passed
-    foreach my $key(keys %{$metadata}) {
-        $req->{input}->{$key} = $metadata->{$key};
-    }
 
     my $client = build_client('InsertRequest');
 
     my $response = $client->($req);
 
     return $response;
+}
 
+=head3 UpdateRequest
+
+Make a call to the UpdateRequest API endpoint
+
+=cut
+
+sub UpdateRequest {
+    my ($self, $request_id, $action, $metadata) = @_;
+
+    my $credentials = $self->_get_credentials;
+
+    # Base request including credentials
+    my $req = {
+        input => {
+            RapidRequestId => $request_id,
+            UpdateAction   => $action,
+            %{$credentials},
+            %{$metadata}
+        }
+    };
+
+    my $client = build_client('UpdateRequest');
+
+    my $response = $client->($req);
+
+    return $response;
+}
+
+=head3 _get_credentials
+
+Return a hashref containing credentials that is ready to be used in a
+request hashref
+
+=cut
+
+sub _get_credentials {
+    my ($self) = @_;
+
+    return {
+        UserName             => $self->{config}->{username},
+        Password             => $self->{config}->{password},
+        RequestingRapidCode  => $self->{config}->{requesting_rapid_code},
+        RequestingBranchName => $self->{config}->{requesting_branch_name},
+    };
 }
 
 =head3 build_client
