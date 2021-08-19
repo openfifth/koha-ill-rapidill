@@ -429,6 +429,7 @@ sub _fail {
 All fields expected by the API
 
 Key = API metadata element name
+  exclude = Do not include on the entry form
   type = Does an element contain a string value or an array of string values?
   label = Display label
   help = Display help text
@@ -445,6 +446,12 @@ i.e. "You must complete field X OR field Y OR field Z"
 
 sub fieldmap {
     return {
+        RapidRequestType => {
+            exclude   => 1,
+            type      => "string",
+            label     => "Material type",
+            materials => [ "Article", "Book", "BookChapter" ]
+        },
         SuggestedIssns => {
             type      => "array",
             label     => "ISSN",
@@ -555,10 +562,6 @@ sub fieldmap {
             type      => "string",
             label     => "Book publisher",
             materials => [ "Book", "BookChapter" ]
-        },
-        RapidRequestType => {
-            type      => "string",
-            materials => [ "Article", "Book", "BookChapter" ]
         }
     };
 }

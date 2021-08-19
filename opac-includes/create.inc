@@ -30,10 +30,10 @@
     <legend>Place an interlibrary loan request</legend>
     <input name="stage" id="stage" value="validate" type="hidden"/>
     <input name="method" id="method" value="create" type="hidden"/>
-    <input name="backend" id="method" value="[% whole.value.other.backend %]" type="hidden"/>
+    <input name="backend" id="backend" value="[% whole.value.other.backend %]" type="hidden"/>
     <ol>
       [% FOREACH field IN whole.field_map.keys.sort %]
-      [% IF whole.field_map.$field.label %]
+      [% IF !whole.field_map.$field.exclude %]
       <li id="rapid_field_[% field %]">
         <label for="[% field %]">[% whole.field_map.$field.label %]:</label>
         <input type="text" name="[% field %]" id="[% field %]" value="[% whole.value.other.$field %]" />
