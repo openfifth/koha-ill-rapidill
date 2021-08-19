@@ -361,29 +361,11 @@ sub create_request {
         if ( grep( /^$type$/, @{$fields->{$field}->{materials}}) && length $params->{other}->{$field} > 0) {
             # "array" fields need splitting by space and forming into an array
             if ($fields->{$field}->{type} eq 'array') {
+                $params->{other}->{$field}=~s/  / /g;
                 my @arr = split(/ /, $params->{other}->{$field});
-                # FIXME: The WSDL defines certain fields (SuggestedIssns, SuggestedIsbns etc.) as an array:
-                #
-                # <SuggestedIssns>
-                #     <string>0028-0836</string>
-                #     <string>1476-4687</string>
-                # </SuggestedIssns>
-                #
-                # However, this needs to be represented as a hash, rather than an array
-                # Trying to build it as:
-                # 
-                # SuggestedIssns => [ { string => "0028-0836" }, { string => "1476-4687" } ]
-                # 
-                # results in:
-                #
-                # error: complex `tns:SuggestedIssns' requires a HASH of input data, not `ARRAY' at tns:InsertRequest/input/SuggestedIssns
-                #
-                # I don't know how to represent this as a hash, clearly I can't have a hash with multiple "string" keys
-                # so the code below only uses the first value. I've emailed the developer of XML::Compile::WSDL11 for suggestions.
-                my $values = {
-                    string => $arr[0]
-                };
-                $metadata->{$field} = $values;
+                # Needs to be in the form
+                # SuggestedIsbns => { string => [ "1234567890", "0987654321" ] }
+                $metadata->{$field} = { string => \@arr };
             } else {
                 $metadata->{$field} = $params->{other}->{$field};
             }
