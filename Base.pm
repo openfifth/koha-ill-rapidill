@@ -361,7 +361,7 @@ sub create_request {
             })->store;
         }
         # Update the submission status
-        $submission->status('REQ');
+        $submission->status('REQ')->store;
         return { success => 1 };
     }
     # The call to RapidILL failed for some reason. Add the message we got back from the API
