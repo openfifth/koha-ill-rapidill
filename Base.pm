@@ -188,27 +188,38 @@ sub cancel {
 
     if (!$rapid_request_id) {
         # No Rapid request, we don't need to do anything else
-        return { success => 1};
+        return { success => 1 };
     }
 
     # This submission was submitted to Rapid, so we can try to cancel it there
     my $response = $self->{_api}->UpdateRequest(
-        $rapid_request_id,
+        $rapid_request_id->value,
         "Cancel"
     );
 
     # If the cancellation was successful, note that in Staff notes
-    if ($response->{parameters}->{UpdateRequestResult}->{IsSuccessful}) {
+    my $body = from_json($response->decoded_content);
+    if ($response->is_success && $body->{result}->{IsSuccessful}) {
         $params->{request}->notesstaff(
             join("\n\n", ($params->{request}->notesstaff || "", "Cancelled with RapidILL"))
         )->store;
-        return { success => 1};
+        return {
+            method => "cancel",
+            stage  => "commit",
+            next   => "illview"
+        };
     }
-
-    # Return the failure message
+    # The call to RapidILL failed for some reason. Add the message we got back from the API
+    # to the submission's Staff Notes
+    $params->{request}->notesstaff(
+        join("\n\n", ($params->{request}->notesstaff || "", "RapidILL request cancellation failed:\n" . $body->{result}->{VerificationNote} || ""))
+    )->store;
+    # Return the message
     return {
-        success => 0,
-        message => $response->{parameters}->{UpdateRequestResult}->{VerificationNote}
+        method => "cancel",
+        stage  => "init",
+        error  => 1,
+        message => $body->{result}->{VerificationNote}
     };
 }
 

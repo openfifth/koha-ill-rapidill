@@ -108,9 +108,9 @@ sub UpdateRequest {
     $metadata //= {};
 
     my $body = encode_json({
-        requestId => $request_id,
-        updateAction   => $action,
-        metadata => $metadata
+        requestId    => $request_id,
+        updateAction => $action,
+        metadata     => $metadata
     });
 
     my $request = HTTP::Request->new( 'POST', $self->{baseurl} . "/updaterequest" );
