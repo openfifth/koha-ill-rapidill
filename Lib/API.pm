@@ -20,30 +20,48 @@ package Koha::Illbackends::RapidILL::Lib::API;
 use strict;
 use warnings;
 
-use File::Basename qw( dirname );
 use LWP::UserAgent;
-use XML::Compile;
-use XML::Compile::WSDL11;
-use XML::Compile::SOAP12;
-use XML::Compile::SOAP11;
-use XML::Compile::Transport::SOAPHTTP;
+use HTTP::Request;
+use JSON qw( encode_json );
+use CGI;
+use URI;
 
 use Koha::Logger;
+use C4::Context;
 
 =head1 NAME
 
-RapidILL - Client interfact to RapidILL API
+RapidILL - Client interface to RapidILL API plugin (koha-plugin-rapidill)
 
 =cut
 
 sub new {
     my ($class, $config, $VERSION) = @_;
 
+    my $cgi = new CGI;
+
+    my $interface = C4::Context->interface;
+    my $url = $interface eq "intranet" ?
+        C4::Context->preference('staffClientBaseURL') :
+        C4::Context->preference('OPACBaseURL');
+
+    # We need a URL to continue, otherwise we can't make the API call to
+    # the RapidILL API plugin
+    if (!$url) {
+        Koha::Logger->get->warn("Syspref staffClientBaseURL or OPACBaseURL not set!");
+        die;
+    }
+
+    my $uri = URI->new($url);
+
     my $self = {
         version => $VERSION,
         ua      => LWP::UserAgent->new,
+        cgi     => new CGI,
         config  => $config,
-        logger  => Koha::Logger->get({ category => 'Koha.Illbackends.RapidILL.Lib.API' })
+        logger  => Koha::Logger->get({ category => 'Koha.Illbackends.RapidILL.Lib.API' }),
+        baseurl => $uri->scheme . "://localhost:" . $uri->port . "/api/v1/contrib/rapidill"
+#        baseurl => $uri->scheme . "://" . $uri->host . ":" . $uri->port . "/api/v1/contrib/rapidill"
     };
 
     bless $self, $class;
@@ -52,104 +70,55 @@ sub new {
 
 =head3 InsertRequest
 
-Make a call to the InsertRequest API endpoint to create a new request
+Make a call to the /insertrequest endpoint to create a new request
 
 =cut
 
 sub InsertRequest {
     my ($self, $metadata, $borrower) = @_;
 
-    my $credentials = $self->_get_credentials;
-
-    # Base request including passed metadata and credentials
-    my $req = {
-        input => {
-            PatronId             => $borrower->borrowernumber,
-            PatronName           => join (" ", ($borrower->firstname, $borrower->surname)),
+    # Request including passed metadata and credentials
+    my $body = encode_json({
+        borrowerId => $borrower->borrowernumber,
+        metadata => {
             PatronNotes          => "== THIS IS A TEST - PLEASE IGNORE! ==",
-            ClientAppName        => "Koha RapidILL client",
-            ClientAppVersion     => $self->{version},
             IsHoldingsCheckOnly  => 0,
             DoBlockLocalOnly     => 0,
-            %{$credentials},
             %{$metadata}
         }
-    };
+    });
 
-    $req->{input}->{PatronEmail} = $borrower->email if $borrower->email;
+    my $request = HTTP::Request->new( 'POST', $self->{baseurl} . "/insertrequest" );
 
-    my $client = build_client('InsertRequest');
+    $request->header( "Content-type" => "application/json" );
+    $request->content( $body );
 
-    my $response = $client->($req);
-
-    return $response;
+    return $self->{ua}->request( $request );
 }
 
 =head3 UpdateRequest
 
-Make a call to the UpdateRequest API endpoint
+Make a call to the updaterequest API endpoint
 
 =cut
 
 sub UpdateRequest {
     my ($self, $request_id, $action, $metadata) = @_;
 
-    my $credentials = $self->_get_credentials;
+    $metadata //= {};
 
-    # Base request including credentials
-    my $req = {
-        input => {
-            RapidRequestId => $request_id,
-            UpdateAction   => $action,
-            %{$credentials},
-            %{$metadata}
-        }
-    };
+    my $body = encode_json({
+        requestId => $request_id,
+        updateAction   => $action,
+        metadata => $metadata
+    });
 
-    my $client = build_client('UpdateRequest');
+    my $request = HTTP::Request->new( 'POST', $self->{baseurl} . "/updaterequest" );
 
-    my $response = $client->($req);
+    $request->header( "Content-type" => "application/json" );
+    $request->content( $body );
 
-    return $response;
-}
-
-=head3 _get_credentials
-
-Return a hashref containing credentials that is ready to be used in a
-request hashref
-
-=cut
-
-sub _get_credentials {
-    my ($self) = @_;
-
-    return {
-        UserName             => $self->{config}->{username},
-        Password             => $self->{config}->{password},
-        RequestingRapidCode  => $self->{config}->{requesting_rapid_code},
-        RequestingBranchName => $self->{config}->{requesting_branch_name},
-    };
-}
-
-=head3 build_client
-
-Build and return an XML::Compile::WSDL11 client
-
-=cut
-
-sub build_client {
-    my ($operation) = @_;
-
-    open my $wsdl_fh, "<", dirname(__FILE__) . "/rapidill.wsdl" || die "Can't open file $!";
-    my $wsdl_file = do { local $/; <$wsdl_fh> };
-    my $wsdl = XML::Compile::WSDL11->new($wsdl_file);
-
-    my $client = $wsdl->compileClient(
-        operation => $operation,
-        port      => "ApiServiceSoap12"
-    );
-
-    return $client;
+    return $self->{ua}->request( $request );
 }
 
 1;

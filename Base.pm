@@ -21,8 +21,7 @@ use Modern::Perl;
 use strict;
 use warnings;
 
-use CGI;
-use JSON qw( to_json );
+use JSON qw( to_json from_json );
 
 use Koha::Illbackends::RapidILL::Lib::Config;
 use Koha::Illbackends::RapidILL::Lib::API;
@@ -38,7 +37,6 @@ sub new {
     my $api = Koha::Illbackends::RapidILL::Lib::API->new($config, $VERSION);
 
     my $self = {
-        cgi     => new CGI,
         config  => $config,
         _api    => $api
     };
@@ -312,6 +310,12 @@ sub create_submission {
     return $request;
 }
 
+=head3
+
+Store metadata for a given request
+
+=cut
+
 sub create_illrequestattributes {
     my ($self, $request, $metadata) = @_;
 
@@ -322,7 +326,11 @@ sub create_illrequestattributes {
     # Iterate our list of fields
     foreach my $field (keys %{$fields}) {
         # If this field is used in the selected material type
-        if ( grep( /^$type$/, @{$fields->{$field}->{materials}})) {
+        if (
+            grep( /^$type$/, @{$fields->{$field}->{materials}}) &&
+            $metadata->{$field} &&
+            length $metadata->{$field} > 0
+        ) {
             my $data = {
                 illrequest_id => $request->illrequest_id,
                 type          => $field,
@@ -358,7 +366,11 @@ sub create_request {
     # Iterate our list of fields
     foreach my $field(keys %{$fields}) {
         # If this field is used in the selected material type and is populated
-        if ( grep( /^$type$/, @{$fields->{$field}->{materials}}) && length $params->{other}->{$field} > 0) {
+        if (
+            grep( /^$type$/, @{$fields->{$field}->{materials}}) &&
+            $params->{other}->{$field} &&
+            length $params->{other}->{$field} > 0
+        ) {
             # "array" fields need splitting by space and forming into an array
             if ($fields->{$field}->{type} eq 'array') {
                 $params->{other}->{$field}=~s/  / /g;
@@ -371,15 +383,16 @@ sub create_request {
             }
         }
     }
-    
-    # Make the request
+
+    # Make the request with RapidILL via the koha-plugin-rapidill API
     my $response = $self->{_api}->InsertRequest( $metadata, $self->{borrower} );
 
     # If the call to RapidILL was successful,
     # add the Rapid request ID to our submission's metadata
-    if ($response->{parameters}->{InsertRequestResult}->{IsSuccessful}) {
-        my $rapid_id = $response->{parameters}->{InsertRequestResult}->{RapidRequestId};
-        if ($rapid_id) {
+    my $body = from_json($response->decoded_content);
+    if ($response->is_success && $body->{result}->{IsSuccessful}) {
+        my $rapid_id = $body->{result}->{RapidRequestId};
+        if ($rapid_id && length $rapid_id > 0) {
             Koha::Illrequestattribute->new({
                 illrequest_id => $submission->illrequest_id,
                 type          => 'RapidRequestId',
@@ -393,12 +406,12 @@ sub create_request {
     # The call to RapidILL failed for some reason. Add the message we got back from the API
     # to the submission's Staff Notes
     $submission->notesstaff(
-        join("\n\n", ($submission->notesstaff || "", "RapidILL request failed:\n" . $response->{parameters}->{InsertRequestResult}->{VerificationNote}))
+        join("\n\n", ($submission->notesstaff || "", "RapidILL request failed:\n" . $body->{result}->{VerificationNote} || ""))
     )->store;
     # Return the message
     return {
         success => 0,
-        message => $response->{parameters}->{InsertRequestResult}->{VerificationNote}
+        message => $body->{result}->{VerificationNote}
     };
 }
 
@@ -588,6 +601,12 @@ sub fieldmap {
             type      => "string",
             label     => "Book publisher",
             materials => [ "Book", "BookChapter" ]
+        },
+        RapidRequestId => {
+            exclude   => 1,
+            type      => "string",
+            label     => "RapidILL identifier",
+            materials => [ "Article", "Book", "BookChapter" ]
         }
     };
 }
