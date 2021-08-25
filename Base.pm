@@ -150,7 +150,7 @@ sub create {
         }
         else {
             # We can submit a request directly to RapidILL
-            my $result = $self->create_request($params);
+            my $result = $self->submit_and_request($params);
 
             if ($result->{success}) {
                 $response->{stage}  = "commit";
@@ -459,6 +459,7 @@ sub create_illrequestattributes {
 =head3 prep_submission_metadata
 
 Given a submission's metadata, probably from a form,
+but maybe as an Illrequestattributes object,
 and a partly constructed hashref, add any metadata that
 is appropriate for this material type
 
@@ -469,28 +470,38 @@ sub prep_submission_metadata {
 
     $return = $return //= {};
 
+    my $metadata_hashref = {};
+
+    if (ref $metadata eq "Koha::Illrequestattributes") {
+        while (my $attr = $metadata->next) {
+            $metadata_hashref->{$attr->type} = $attr->value;
+        }
+    } else {
+        $metadata_hashref = $metadata;
+    }
+
     # Get our canonical field list
     my $fields = $self->fieldmap;
 
-    my $type = $metadata->{RapidRequestType};
+    my $type = $metadata_hashref->{RapidRequestType};
 
     # Iterate our list of fields
     foreach my $field(keys %{$fields}) {
         # If this field is used in the selected material type and is populated
         if (
             grep( /^$type$/, @{$fields->{$field}->{materials}}) &&
-            $metadata->{$field} &&
-            length $metadata->{$field} > 0
+            $metadata_hashref->{$field} &&
+            length $metadata_hashref->{$field} > 0
         ) {
             # "array" fields need splitting by space and forming into an array
             if ($fields->{$field}->{type} eq 'array') {
-                $metadata->{$field}=~s/  / /g;
-                my @arr = split(/ /, $metadata->{$field});
+                $metadata_hashref->{$field}=~s/  / /g;
+                my @arr = split(/ /, $metadata_hashref->{$field});
                 # Needs to be in the form
                 # SuggestedIsbns => { string => [ "1234567890", "0987654321" ] }
                 $return->{$field} = { string => \@arr };
             } else {
-                $return->{$field} = $metadata->{$field};
+                $return->{$field} = $metadata_hashref->{$field};
             }
         }
     }
@@ -498,31 +509,45 @@ sub prep_submission_metadata {
     return $return;
 }
 
-=head3 create_request
+=head3 submit_and_request
 
 Creates a local submission, then uses the returned ID to create
 a RapidILL request
 
 =cut
 
-sub create_request {
+sub submit_and_request {
     my ($self, $params) = @_;
 
-    # First we create a submission, we can then pass the local request
-    # ID to Rapid.
+    # First we create a submission
     my $submission = $self->create_submission($params);
 
-    my $type = $params->{other}->{RapidRequestType};
+    # Now use the submission to try and create a request with Rapid
+    return $self->create_request($submission);
+}
+
+=head3 create_request
+
+Take a previously created submission and send it to RapidILL
+in order to create a request
+
+=cut
+
+sub create_request {
+    my ($self, $submission) = @_;
 
     # Add the ID of our newly created submission
     my $metadata = {
         XRefRequestId => $submission->illrequest_id
     };
 
-    $metadata = $self->prep_submission_metadata($params->{other}, $metadata);
+    $metadata = $self->prep_submission_metadata(
+        $submission->illrequestattributes,
+        $metadata
+    );
 
     # Make the request with RapidILL via the koha-plugin-rapidill API
-    my $response = $self->{_api}->InsertRequest( $metadata, $self->{borrower} );
+    my $response = $self->{_api}->InsertRequest( $metadata, $submission->borrowernumber );
 
     # If the call to RapidILL was successful,
     # add the Rapid request ID to our submission's metadata
@@ -550,6 +575,34 @@ sub create_request {
         success => 0,
         message => $body->{result}->{VerificationNote}
     };
+
+}
+
+=head3 confirm
+
+A wrapper around create_request allowing us to
+provide the "confirm" method required by
+the status graph
+
+=cut
+
+sub confirm {
+    my ($self, $params) = @_;
+
+    my $return = $self->create_request($params->{request});
+
+    my $return_value = {
+        error   => 0,
+        status  => "",
+        message => "",
+        method  => "create",
+        stage   => "commit",
+        next    => "illview",
+        value   => {},
+        %{$return}
+    };
+
+    return $return_value;
 }
 
 =head3 metadata
@@ -590,7 +643,18 @@ sub status_graph {
             method         => 'edititem',
             next_actions   => [],
             ui_method_icon => 'fa-edit',
-        }
+        },
+        # Override REQ so we can rename the button
+        # Talk about a sledgehammer to crack a nut
+        REQ => {
+            prev_actions   => [ 'NEW', 'REQREV', 'QUEUED', 'CANCREQ' ],
+            id             => 'REQ',
+            name           => 'Requested',
+            ui_method_name => 'Request from RapidILL',
+            method         => 'confirm',
+            next_actions   => [ 'REQREV', 'COMP', 'CHK' ],
+            ui_method_icon => 'fa-check',
+        },        
     };
 }
 

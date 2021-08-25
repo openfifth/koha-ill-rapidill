@@ -75,11 +75,11 @@ Make a call to the /insertrequest endpoint to create a new request
 =cut
 
 sub InsertRequest {
-    my ($self, $metadata, $borrower) = @_;
+    my ($self, $metadata, $borrowernumber) = @_;
 
     # Request including passed metadata and credentials
     my $body = encode_json({
-        borrowerId => $borrower->borrowernumber,
+        borrowerId => $borrowernumber,
         metadata => {
             PatronNotes          => "== THIS IS A TEST - PLEASE IGNORE! ==",
             IsHoldingsCheckOnly  => 0,
