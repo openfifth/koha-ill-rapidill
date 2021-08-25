@@ -335,12 +335,12 @@
             var listenerSelectors = '';
             var fieldmap = [% whole.field_map_json %];
             showFields();
-            validateFields();
-            addHandlers();
+            //validateFields();
+            //addHandlers();
             $('#type').change(function() {
               showFields();
-              validateFields();
-              addHandlers();
+              //validateFields();
+              //addHandlers();
             });
 
             // Show or hide fields depending on selected type

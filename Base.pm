@@ -22,6 +22,7 @@ use strict;
 use warnings;
 
 use JSON qw( to_json from_json );
+use File::Basename qw( dirname );
 
 use Koha::Illbackends::RapidILL::Lib::Config;
 use Koha::Illbackends::RapidILL::Lib::API;
@@ -223,6 +224,108 @@ sub cancel {
     };
 }
 
+=head3 edititem
+
+Edit an item's metadata
+
+=cut
+
+sub edititem {
+    my ($self, $params) = @_;
+
+    # Don't allow editing of requested submissions
+    return { method => 'illlist' } if $params->{request}->status ne 'NEW';
+
+    my $other = $params->{other};
+    my $stage = $other->{stage};
+    if ( !$stage || $stage eq 'init' ) {
+        my $attrs = $params->{request}->illrequestattributes->unblessed;
+        foreach my $attr(@{$attrs}) {
+            $other->{$attr->{type}} = $attr->{value};
+        }
+        return {
+            cwd     => dirname(__FILE__),
+            error   => 0,
+            status  => '',
+            message => '',
+            method  => 'edititem',
+            stage   => 'form',
+            value   => $params,
+            field_map => $self->fieldmap,
+            field_map_json => to_json($self->fieldmap)
+        };
+    } elsif ( $stage eq 'form' ) {
+        # Update submission
+        my $submission = $params->{request};
+        $submission->updated( DateTime->now );
+        $submission->store;
+
+        # We may be receiving a submitted form due to the user having
+        # changed request material type, so we just need to go straight
+        # back to the form, the type has been changed in the params
+        if (defined $other->{change_type}) {
+            delete $other->{change_type};
+            return {
+                cwd     => dirname(__FILE__),
+                error   => 0,
+                status  => '',
+                message => '',
+                method  => 'edititem',
+                stage   => 'form',
+                value   => $params,
+                field_map => $self->fieldmap,
+                field_map_json => to_json($self->fieldmap)
+            };
+        }
+
+        # ...Populate Illrequestattributes
+        # generate $request_details
+        # We do this with a 'dump all and repopulate approach' inside
+        # a transaction, easier than catering for create, update & delete
+        my $dbh    = C4::Context->dbh;
+        my $schema = Koha::Database->new->schema;
+        $schema->txn_do(
+            sub{
+                # Delete all existing attributes for this request
+                $dbh->do( q|
+                    DELETE FROM illrequestattributes WHERE illrequest_id=?
+                |, undef, $submission->id);
+                # Insert all current attributes for this request
+                my $type = $other->{RapidRequestType};
+                my $fields = $self->fieldmap;
+                foreach my $field(%{$other}) {
+                    my $value = $other->{$field};
+                    if (
+                        grep( /^$type$/, @{$fields->{$field}->{materials}}) &&
+                        $other->{$field} &&
+                        length $other->{$field} > 0
+                    ) {
+                        my @bind = ($submission->id, $field, $value, 0);
+                        $dbh->do ( q|
+                            INSERT INTO illrequestattributes
+                            (illrequest_id, type, value, readonly) VALUES
+                            (?, ?, ?, ?)
+                        |, undef, @bind);
+                    }
+                }
+            }
+        );
+
+        # Create response
+        return {
+            error          => 0,
+            status         => '',
+            message        => '',
+            method         => 'create',
+            stage          => 'commit',
+            next           => 'illview',
+            value          => $params,
+            field_map      => $self->fieldmap,
+            field_map_json => to_json($self->fieldmap)
+        };
+    }
+}
+
 =head3 _validate_metadata
 
 Test if we have sufficient metadata to create a request for
@@ -345,11 +448,54 @@ sub create_illrequestattributes {
             my $data = {
                 illrequest_id => $request->illrequest_id,
                 type          => $field,
-                value         => $metadata->{$field}
+                value         => $metadata->{$field},
+                readonly      => 0
             };
             Koha::Illrequestattribute->new($data)->store;
         }
     }
+}
+
+=head3 prep_submission_metadata
+
+Given a submission's metadata, probably from a form,
+and a partly constructed hashref, add any metadata that
+is appropriate for this material type
+
+=cut
+
+sub prep_submission_metadata {
+    my ($self, $metadata, $return) = @_;
+
+    $return = $return //= {};
+
+    # Get our canonical field list
+    my $fields = $self->fieldmap;
+
+    my $type = $metadata->{RapidRequestType};
+
+    # Iterate our list of fields
+    foreach my $field(keys %{$fields}) {
+        # If this field is used in the selected material type and is populated
+        if (
+            grep( /^$type$/, @{$fields->{$field}->{materials}}) &&
+            $metadata->{$field} &&
+            length $metadata->{$field} > 0
+        ) {
+            # "array" fields need splitting by space and forming into an array
+            if ($fields->{$field}->{type} eq 'array') {
+                $metadata->{$field}=~s/  / /g;
+                my @arr = split(/ /, $metadata->{$field});
+                # Needs to be in the form
+                # SuggestedIsbns => { string => [ "1234567890", "0987654321" ] }
+                $return->{$field} = { string => \@arr };
+            } else {
+                $return->{$field} = $metadata->{$field};
+            }
+        }
+    }
+
+    return $return;
 }
 
 =head3 create_request
@@ -366,7 +512,6 @@ sub create_request {
     # ID to Rapid.
     my $submission = $self->create_submission($params);
 
-    my $fields = $self->fieldmap;
     my $type = $params->{other}->{RapidRequestType};
 
     # Add the ID of our newly created submission
@@ -374,26 +519,7 @@ sub create_request {
         XRefRequestId => $submission->illrequest_id
     };
 
-    # Iterate our list of fields
-    foreach my $field(keys %{$fields}) {
-        # If this field is used in the selected material type and is populated
-        if (
-            grep( /^$type$/, @{$fields->{$field}->{materials}}) &&
-            $params->{other}->{$field} &&
-            length $params->{other}->{$field} > 0
-        ) {
-            # "array" fields need splitting by space and forming into an array
-            if ($fields->{$field}->{type} eq 'array') {
-                $params->{other}->{$field}=~s/  / /g;
-                my @arr = split(/ /, $params->{other}->{$field});
-                # Needs to be in the form
-                # SuggestedIsbns => { string => [ "1234567890", "0987654321" ] }
-                $metadata->{$field} = { string => \@arr };
-            } else {
-                $metadata->{$field} = $params->{other}->{$field};
-            }
-        }
-    }
+    $metadata = $self->prep_submission_metadata($params->{other}, $metadata);
 
     # Make the request with RapidILL via the koha-plugin-rapidill API
     my $response = $self->{_api}->InsertRequest( $metadata, $self->{borrower} );
@@ -455,7 +581,17 @@ This backend provides no additional actions on top of the core_status_graph
 =cut
 
 sub status_graph {
-    return {};
+    return {
+        EDITITEM => {
+            prev_actions   => [ 'NEW' ],
+            id             => 'EDITITEM',
+            name           => 'Edited item metadata',
+            ui_method_name => 'Edit item metadata',
+            method         => 'edititem',
+            next_actions   => [],
+            ui_method_icon => 'fa-edit',
+        }
+    };
 }
 
 sub name {

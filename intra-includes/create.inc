@@ -32,7 +32,7 @@
 <p>We have now created your request.</p>
 
 [% ELSIF whole.stage == "init" %]
-<h2>Search RapidILL</h2>
+<h2>Enter metadata</h2>
 <form method="POST" action="[% here %]" id="create_form">
   <fieldset class="rows">
     <legend>Search RapidILL</legend>
