@@ -77,16 +77,24 @@ Make a call to the /insertrequest endpoint to create a new request
 sub InsertRequest {
     my ($self, $metadata, $borrowernumber) = @_;
 
+    my $borrower = Koha::Patrons->find( $borrowernumber );
+
+    my @name = grep { defined } ($borrower->firstname, $borrower->surname);
+
     # Request including passed metadata and credentials
     my $body = encode_json({
         borrowerId => $borrowernumber,
         metadata => {
+            PatronId             => $borrower->borrowernumber,
+            PatronName           => join (" ", @name),
             PatronNotes          => "== THIS IS A TEST - PLEASE IGNORE! ==",
             IsHoldingsCheckOnly  => 0,
             DoBlockLocalOnly     => 0,
             %{$metadata}
         }
     });
+
+    $body->{metadata}->{PatronEmail} = $borrower->email if $borrower->email;
 
     my $request = HTTP::Request->new( 'POST', $self->{baseurl} . "/insertrequest" );
 
