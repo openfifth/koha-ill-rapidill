@@ -1,12 +1,6 @@
 [% USE Koha %]
 [% USE Asset %]
 [% USE raw %]
-<style>
-    #interlibraryloans #search-summary {
-        left: 15px;
-        max-width: 70%;
-    }
-</style>
 
 [% IF whole.error %]
   [% IF whole.status == 'missing_fields' %]
@@ -32,10 +26,15 @@
 <p>We have now created your request.</p>
 
 [% ELSIF whole.stage == "init" %]
-<h2>Enter metadata</h2>
+<div role="alert" class="alert alert-warning" id="request-lookup" style="display: none">
+  Checking item availability via RapidILL
+  <img src="[% interface | html %]/[% theme | html %]/img/spinner-small.gif" alt="" />
+</div>
+<div role="alert" class="alert alert-success" id="request-possible" style="display: none">Item is available for request</div>
+<div role="alert" class="alert alert-warning" id="request-notpossible" style="display: none">Item is not available for request</div>
 <form method="POST" action="[% here %]" id="create_form">
   <fieldset class="rows">
-    <legend>Search RapidILL</legend>
+    <legend>Enter metadata</legend>
     <input name="stage" id="stage" value="validate" type="hidden"/>
     <input name="method" id="method" value="create" type="hidden"/>
     <input name="backend" id="backend" value="[% whole.value.other.backend %]" type="hidden"/>
@@ -96,13 +95,15 @@
 </form>
 
 [% END %]
-[% BLOCK backend_jsinclude %]
 <style>
   #rapid_warnings {
     margin-bottom: 0;
   }
   .rapid_hint {
    margin-left: 1em; 
+  }
+  .alert {
+    margin-top: 20px;
   }
 </style>
 <script>
@@ -212,6 +213,107 @@
           }
         };
 
+        // Check if something can be requested based on the current metadata
+        function canRequestLookup(messages) {
+          if (messages.length > 0) return;
+
+          var baseMetadata = {
+              IsHoldingsCheckOnly: true,
+              DoBlockLocalOnly: false,
+              PatronNotes: 'HOLDING_CHECK_DO_REMOTE_SEARCH'
+          };
+
+          // Merge our provided metadata, if appropriate
+          var providedMetadata = gatherMetadata();
+          // If we don't have any, we can't continue;
+          if (Object.keys(providedMetadata).length === 0) return;
+          var metadata = Object.assign(baseMetadata, providedMetadata);
+
+          // Make the lookup call
+          debouncedApiCall(
+            'insertrequest',
+            { metadata: metadata, borrowerId: 0},
+            handleLookupResponse
+          )();
+        };
+
+        // Return a debounced API call
+        function debouncedApiCall(endpoint, data, callback) {
+          return debounce(function() {
+            $('#request-possible').css('display', 'none');
+            $('#request-notpossible').css('display', 'none');
+            $('#request-lookup').css('display', 'block');
+            $.post({
+              url: '/api/v1/contrib/rapidill/' + endpoint,
+              data: JSON.stringify(data),
+              contentType: 'application/json'
+            })
+              .done(function(resp, status) {
+                callback(resp);
+              })
+          }, 1000);
+        };
+
+        // Simple debounce
+        // Returns a function, that, as long as it continues to be invoked, will not
+        // be triggered. The function will be called after it stops being called for
+        // N milliseconds. If `immediate` is passed, trigger the function on the
+        // leading edge, instead of the trailing.
+        // Taken from: https://davidwalsh.name/javascript-debounce-function
+        var timeout;
+        function debounce(func, wait, immediate) {
+          return function() {
+            var context = this,
+              args = arguments;
+            var later = function() {
+              timeout = null;
+              if (!immediate) func.apply(context, args);
+            };
+            var callNow = immediate && !timeout;
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+            if (callNow) func.apply(context, args);
+          };
+        }
+
+        // Handle lookup response
+        function handleLookupResponse(response) {
+          $('#request-lookup').css('display', 'none');
+          $('#request-possible').css('display', 'none');
+          $('#request-notpossible').css('display', 'none');
+          if (response.result.FoundMatch === 1 && response.result.NumberOfAvailableHoldings > 0) {
+            $('#request-possible').css('display', 'block');
+          } else if (response.result.FoundMatch === 0) {
+            $('#request-notpossible').css('display', 'block');
+          }
+        };
+
+        // Iterate our fields for this material type and gather any provided values
+        function gatherMetadata() {
+          var type = $('#type').val();
+
+          var metadata = {
+            RapidRequestType: type
+          };
+
+          Object.keys(fieldmap).filter(function(key) {
+            if (fieldmap[key].materials.indexOf(type) != -1) {
+              var val = $('#' + key).val();
+              if (val && val.length > 0) {
+                if (fieldmap[key].type === 'string') {
+                  metadata[key] = val;
+                } else if (fieldmap[key].type === 'array') {
+                  val = val.replace(/  /, ' ');
+                  var valArr = val.split(' ');
+                  metadata[key] = { string: valArr };
+                }
+              }
+            }
+          });
+
+          return metadata;
+        };
+
         // Validate fields and display warnings
         function validateFields() {
           // Get our validation groups
@@ -240,6 +342,7 @@
           });
           manageWarning(messages);
           manageSubmit(messages);
+          canRequestLookup(messages);
         };
 
         // Add autocomplete for patron selection
@@ -261,4 +364,3 @@
     });
     //]]>
 </script>
-[% END %]
