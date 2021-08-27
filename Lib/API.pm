@@ -87,7 +87,6 @@ sub InsertRequest {
         metadata => {
             PatronId             => $borrower->borrowernumber,
             PatronName           => join (" ", @name),
-            PatronNotes          => "== THIS IS A TEST - PLEASE IGNORE! ==",
             IsHoldingsCheckOnly  => 0,
             DoBlockLocalOnly     => 0,
             %{$metadata}
