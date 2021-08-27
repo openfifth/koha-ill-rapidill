@@ -748,8 +748,11 @@ sub fieldmap {
             label     => "Article title or book chapter title / number",
             materials => [ "Article", "BookChapter" ],
             required  => {
+                "Article" => {
+                    group   => "ARTICLE_ARTICLE_TITLE_PAGES"
+                },
                 "BookChapter" => {
-                    group   => "ARTICLE_TITLE_PAGES"
+                    group   => "CHAPTER_ARTICLE_TITLE_PAGES"
                 }
             }
         },
@@ -763,8 +766,11 @@ sub fieldmap {
             label     => "Pages in journal or book extract",
             materials => [ "Article", "BookChapter" ],
             required  => {
+                "Article" => {
+                    group   => "ARTICLE_ARTICLE_TITLE_PAGES"
+                },
                 "BookChapter" => {
-                    group   => "ARTICLE_TITLE_PAGES"
+                    group   => "CHAPTER_ARTICLE_TITLE_PAGES"
                 }
             }
         },
