@@ -42,6 +42,12 @@ sub new {
         _api    => $api
     };
 
+    $self->{_logger} = $params->{logger} if ( $params->{logger} ); 
+    $self->{templates} = { 
+        'RAPIDILL_REQUEST_FAILED'    => dirname(__FILE__) . '/intra-includes/log/rapidill_request_failed.tt',
+        'RAPIDILL_REQUEST_SUCCEEDED' => dirname(__FILE__) . '/intra-includes/log/rapidill_request_succeeded.tt'
+    };
+
     bless($self, $class);
 
     return $self;
@@ -578,6 +584,13 @@ sub create_request {
         }
         # Update the submission status
         $submission->status('REQ')->store;
+
+        # Log the outcome
+        $self->log_request_outcome({
+            outcome => 'RAPIDILL_REQUEST_SUCCEEDED',
+            request => $submission
+        });
+
         return { success => 1 };
     }
     # The call to RapidILL failed for some reason. Add the message we got back from the API
@@ -585,6 +598,14 @@ sub create_request {
     $submission->notesstaff(
         join("\n\n", ($submission->notesstaff || "", "RapidILL request failed:\n" . $body->{result}->{VerificationNote} || ""))
     )->store;
+
+    # Log the outcome
+    $self->log_request_outcome({
+        outcome => 'RAPIDILL_REQUEST_FAILED',
+        request => $submission,
+        message => $body->{result}->{VerificationNote}
+    });
+
     # Return the message
     return {
         success => 0,
@@ -618,6 +639,51 @@ sub confirm {
     };
 
     return $return_value;
+}
+
+=head3 log_request_outcome
+
+Log the outcome of a request to the RapidILL API
+
+=cut
+
+sub log_request_outcome {
+    my ($self, $params) = @_;
+
+    if ( $self->{_logger} ) {
+        # TODO: This is a transitionary measure, we have removed set_data
+        # in Bug 20750, so calls to it won't work. But since 20750 is
+        # only in 19.05+, they only won't work in earlier
+        # versions. So we're temporarily going to allow for both cases
+        my $payload = {
+            modulename   => 'ILL',
+            actionname   => $params->{outcome},
+            objectnumber => $params->{request}->id,
+            infos        => to_json({
+                log_origin => $self->name,
+                response  => $params->{message}
+            })
+        };
+        if ($self->{_logger}->can('set_data')) {
+            $self->{_logger}->set_data($payload);
+        } else {
+            $self->{_logger}->log_something($payload);
+        }
+    }
+}
+
+=head3 get_log_template_path
+
+    my $path = $BLDSS->get_log_template_path($action);
+
+Given an action, return the path to the template for displaying
+that action log
+
+=cut
+
+sub get_log_template_path {
+    my ( $self, $action ) = @_;
+    return $self->{templates}->{$action};
 }
 
 =head3 metadata

@@ -1,0 +1,4 @@
+<p>
+[% log.timestamp | $KohaDates with_hours => 1 %] : <b>RapidILL request failed </b>
+received response &quot;[% log.info.response.replace('\n', ', ') | html %]&quot;
+</p>
