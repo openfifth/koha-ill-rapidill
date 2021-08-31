@@ -106,6 +106,7 @@
     margin-top: 20px;
   }
 </style>
+[% BLOCK backend_jsinclude %]
 <script>
     // Require a username and branch selection
     document.addEventListener('DOMContentLoaded', function(){
@@ -250,7 +251,7 @@
             })
               .done(function(resp, status) {
                 callback(resp);
-              })
+              });
           }, 1000);
         };
 
@@ -364,3 +365,4 @@
     });
     //]]>
 </script>
+[% END %]

@@ -224,6 +224,21 @@ sub cancel {
     };
 }
 
+=head3 illview
+
+   View and manage an ILL request
+
+=cut
+
+sub illview {
+    my ($self, $params) = @_;
+
+    return {
+        field_map_json => to_json(fieldmap()),
+        method         => "illview"
+    };
+}
+
 =head3 edititem
 
 Edit an item's metadata
@@ -626,6 +641,26 @@ sub metadata {
 
     return $metadata;
 }
+
+=head3 capabilities
+
+    $capability = $backend->capabilities($name);
+
+Return the sub implementing a capability selected by NAME, or 0 if that
+capability is not implemented.
+
+=cut
+
+sub capabilities {
+    my ( $self, $name ) = @_;
+    my ($query) = @_;
+    my $capabilities = {
+        # View and manage a request
+        illview => sub { illview(@_); },
+    };
+    return $capabilities->{$name};
+}
+
 
 =head3 status_graph
 
