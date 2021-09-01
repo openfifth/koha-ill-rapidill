@@ -66,14 +66,16 @@ sub create {
     my $stage = $other->{stage};
 
     my $response = {
-        backend    => $self->name,
-        method     => "create",
-        stage      => $stage,
-        branchcode => $other->{branchcode},
-        cardnumber => $other->{cardnumber},
-        status     => "",
-        message    => "",
-        error      => 0
+        backend        => $self->name,
+        method         => "create",
+        stage          => $stage,
+        branchcode     => $other->{branchcode},
+        cardnumber     => $other->{cardnumber},
+        status         => "",
+        message        => "",
+        error          => 0,
+        field_map      => $self->fieldmap(),
+        field_map_json => to_json($self->fieldmap())
     };
 
     # Check for borrowernumber
