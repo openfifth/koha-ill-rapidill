@@ -1,4 +1,7 @@
 [% USE Koha %]
+
+[% cwd = whole.cwd %]
+
 [% IF whole.error %]
   [% IF whole.status == 'missing_fields' %]
     <p><em>Please Note:</em> Some mandatory fields are missing.</p>
@@ -18,6 +21,11 @@
     <p><em>Unhandled error</em></p>
   [% END %]
 [% END %]
+
+<div role="alert" class="alert alert-warning" id="request-notpossible" style="display: none">
+  Item cannot be requested
+  <div id="localholdings" style="display:none"></div>
+</div>
 
 [% IF whole.stage == "commit" %]
 <p>We have now created your request.</p>
@@ -83,22 +91,25 @@
 [% BLOCK backend_jsinclude %]
 <script>
   document.addEventListener('DOMContentLoaded', function(){
-      var fieldmap = [% whole.field_map_json %];
-      showFields();
-      $('#type').change(function() {
+    // Fields that are not in groups, but cannot be empty
+    var notEmpty = [ ];
+
+    var listenerSelectors = '';
+
+    var fieldmap = [% whole.field_map_json %];
+    showFields();
+
+    [% INCLUDE "${cwd}/shared-includes/create.js" %]
+
+    showFields();
+    validateFields();
+    addHandlers();
+
+    $('#type').change(function() {
         showFields();
-      });
-      // Show or hide fields depending on selected type
-      function showFields() {
-        var selected = $('#type').val();
-        Object.keys(fieldmap).forEach(function(key) {
-          if (fieldmap[key].materials.indexOf(selected) == -1) {
-            $('#rapid_field_' + key).hide();
-          } else {
-            $('#rapid_field_' + key).show();
-          }
-        });
-      };
+        validateFields();
+        addHandlers();
+    });
   });
 </script>
 [% END %]

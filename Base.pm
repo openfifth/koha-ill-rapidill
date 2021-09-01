@@ -66,6 +66,7 @@ sub create {
     my $stage = $other->{stage};
 
     my $response = {
+        cwd            => dirname(__FILE__),
         backend        => $self->name,
         method         => "create",
         stage          => $stage,
@@ -213,6 +214,7 @@ sub cancel {
             join("\n\n", ($params->{request}->notesstaff || "", "Cancelled with RapidILL"))
         )->store;
         return {
+            cwd    => dirname(__FILE__),
             method => "cancel",
             stage  => "commit",
             next   => "illview"
@@ -225,9 +227,10 @@ sub cancel {
     )->store;
     # Return the message
     return {
-        method => "cancel",
-        stage  => "init",
-        error  => 1,
+        cwd     => dirname(__FILE__),
+        method  => "cancel",
+        stage   => "init",
+        error   => 1,
         message => $body->{result}->{VerificationNote}
     };
 }
@@ -257,7 +260,10 @@ sub edititem {
     my ($self, $params) = @_;
 
     # Don't allow editing of requested submissions
-    return { method => 'illlist' } if $params->{request}->status ne 'NEW';
+    return {
+        cwd    => dirname(__FILE__),
+        method => 'illlist'
+    } if $params->{request}->status ne 'NEW';
 
     my $other = $params->{other};
     my $stage = $other->{stage};
@@ -336,6 +342,7 @@ sub edititem {
 
         # Create response
         return {
+            cwd            => dirname(__FILE__),
             error          => 0,
             status         => '',
             message        => '',
@@ -630,6 +637,7 @@ sub confirm {
     my $return = $self->create_request($params->{request});
 
     my $return_value = {
+        cwd     => dirname(__FILE__),
         error   => 0,
         status  => "",
         message => "",
