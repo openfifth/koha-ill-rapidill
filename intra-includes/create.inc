@@ -31,7 +31,11 @@
   <img src="[% interface | html %]/[% theme | html %]/img/spinner-small.gif" alt="" />
 </div>
 <div role="alert" class="alert alert-success" id="request-possible" style="display: none">Item is available for request</div>
-<div role="alert" class="alert alert-warning" id="request-notpossible" style="display: none">Item is not available for request</div>
+<div role="alert" class="alert alert-warning" id="request-notpossible" style="display: none">
+  Item cannot be requested
+  <div id="localholdings" style="display:none"></div>
+  <div id="errormessage" style="display:none"></div>
+</div>
 <form method="POST" action="[% here %]" id="create_form">
   <fieldset class="rows">
     <legend>Enter metadata</legend>
@@ -104,6 +108,16 @@
   }
   .alert {
     margin-top: 20px;
+  }
+  #localholdings,
+  #errormessage {
+    margin-top: 1rem;
+  }
+  #localholdings ul {
+    margin-top: 0.5rem;
+  }
+  #localholdings li {
+    margin: 0.3rem 0;
   }
 </style>
 [% BLOCK backend_jsinclude %]
@@ -214,45 +228,80 @@
           }
         };
 
-        // Check if something can be requested based on the current metadata
-        function canRequestLookup(messages) {
+        // Check the requestability and local holdings of an item
+        // This requires two API calls, we look at the response of
+        // both to establish what availability we have
+        function requestability(messages) {
+
           if (messages.length > 0) return;
 
-          var baseMetadata = {
-              IsHoldingsCheckOnly: true,
-              DoBlockLocalOnly: false,
-              PatronNotes: 'HOLDING_CHECK_DO_REMOTE_SEARCH'
-          };
+          $('#errormessage').empty().css('display', 'none');
+          $('#localholdings').empty().css('display', 'none');
+          $('#request-lookup').css('display', 'none');
+          $('#request-possible').css('display', 'none');
+          $('#request-notpossible').css('display', 'none');
 
-          // Merge our provided metadata, if appropriate
+          // Get our provided metadata
           var providedMetadata = gatherMetadata();
           // If we don't have any, we can't continue;
           if (Object.keys(providedMetadata).length === 0) return;
+
+          // First, is this item available locally
+          var baseMetadata = {
+              IsHoldingsCheckOnly: true,
+              DoBlockLocalOnly: false,
+          };
+
+          // Merge it with our base metadata
           var metadata = Object.assign(baseMetadata, providedMetadata);
 
-          // Make the lookup call
-          debouncedApiCall(
+          // Show that we're doing something
+          $('#request-lookup').css('display', 'block');
+
+          makeApiCall(
             'insertrequest',
-            { metadata: metadata, borrowerId: 0},
-            handleLookupResponse
-          )();
+            { metadata: metadata, borrowerId: 0 },
+            // Slight meander into callback hell
+            function(response) {
+              var holdings = response.result;
+
+              // If we have local holdings, we won't be able to
+              // place a request so we should just report the holdings
+              if (
+                holdings.LocalHoldings &&
+                holdings.LocalHoldings.LocalHoldingItem &&
+                holdings.LocalHoldings.LocalHoldingItem.length > 0) {
+                handleRequestabilityResponse({ holdings: holdings.LocalHoldings.LocalHoldingItem });
+              } else {
+                // Now check requestability
+                // Adding the PatronNotes indicates that we want remote
+                // availability
+                metadata.PatronNotes = 'HOLDING_CHECK_DO_REMOTE_SEARCH';
+                makeApiCall(
+                  'insertrequest',
+                  { metadata: metadata, borrowerId: 0 },
+                  function(response) {
+                    // Handle our responses
+                    handleRequestabilityResponse({
+                      canRequest: response.result
+                    });
+                  }
+                );
+              }
+            }
+          );
         };
 
-        // Return a debounced API call
-        function debouncedApiCall(endpoint, data, callback) {
-          return debounce(function() {
-            $('#request-possible').css('display', 'none');
-            $('#request-notpossible').css('display', 'none');
-            $('#request-lookup').css('display', 'block');
-            $.post({
-              url: '/api/v1/contrib/rapidill/' + endpoint,
-              data: JSON.stringify(data),
-              contentType: 'application/json'
-            })
-              .done(function(resp, status) {
-                callback(resp);
-              });
-          }, 1000);
+        // Make an API call
+        function makeApiCall(endpoint, data, callback) {
+          $.post({
+            url: '/api/v1/contrib/rapidill/' + endpoint,
+            data: JSON.stringify(data),
+            contentType: 'application/json'
+          })
+            .done(function(resp, status) {
+              callback(resp);
+            });
         };
 
         // Simple debounce
@@ -278,14 +327,36 @@
         }
 
         // Handle lookup response
-        function handleLookupResponse(response) {
+        function handleRequestabilityResponse(response) {
           $('#request-lookup').css('display', 'none');
           $('#request-possible').css('display', 'none');
           $('#request-notpossible').css('display', 'none');
-          if (response.result.FoundMatch === 1 && response.result.NumberOfAvailableHoldings > 0) {
-            $('#request-possible').css('display', 'block');
-          } else if (response.result.FoundMatch === 0) {
+
+          // If we got back local holdings
+          if (response.holdings) {
+            var local = [];
+            response.holdings.forEach(function(holding) {
+              local.push('<li><a href="' + holding.RapidRedirectUrl + '" target="_blank">' + holding.RapidRedirectUrl + '</a></li>');
+            });
             $('#request-notpossible').css('display', 'block');
+            $('#localholdings').append(
+              '<p>' + _('Item is available locally') + ':</p>' +
+              '<ul>' + local.join('') + '</ul>'
+            ).show();
+          } else {
+            // No local holdings so we need to establish if this item is available for
+            // request
+            if (
+              response.canRequest.FoundMatch === 1 &&
+              response.canRequest.NumberOfAvailableHoldings > 0
+            ) {
+              // This item is available for request
+              $('#request-possible').css('display', 'block');
+            } else {
+              // Not available for request, display why
+              $('#errormessage').append('<span>' + response.canRequest.VerificationNote.replace('\n', ', ') + '</span>').show();
+              $('#request-notpossible').css('display', 'block');
+            }
           }
         };
 
@@ -343,7 +414,7 @@
           });
           manageWarning(messages);
           manageSubmit(messages);
-          canRequestLookup(messages);
+          debounce(requestability, 1000)(messages);
         };
 
         // Add autocomplete for patron selection
