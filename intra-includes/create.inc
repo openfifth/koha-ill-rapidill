@@ -61,7 +61,7 @@
         <select name="RapidRequestType" id="type">
           [% options = { Book => 'Book', Article => 'Article', BookChapter => 'Book chapter' } %]
           [% FOREACH opt IN options.keys.sort %]
-          [% IF ( whole.value.other.type == opt ) %]
+          [% IF ( whole.value.other.RapidRequestType == opt ) %]
           <option value="[% opt %]" selected="selected">[% options.$opt %]</option>
           [% ELSE %]
           <option value="[% opt %]">[% options.$opt %]</option>
