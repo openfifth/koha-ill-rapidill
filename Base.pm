@@ -79,8 +79,11 @@ sub create {
         field_map_json => to_json($self->fieldmap())
     };
 
-    # Check for borrowernumber
-    if ( !$other->{borrowernumber} && defined( $other->{cardnumber} ) ) {
+    # Check for borrowernumber, but only if we're not receiving an OpenURL
+    if (
+        !$other->{openurl} &&
+        (!$other->{borrowernumber} && defined( $other->{cardnumber} ))
+    ) {
         $response->{cardnumber} = $other->{cardnumber};
 
         # 'cardnumber' here could also be a surname (or in the case of
@@ -112,6 +115,15 @@ sub create {
 
     # Initiate process
     if ( !$stage || $stage eq 'init' ) {
+
+        # First thing we want to do, is check if we're receiving
+        # an OpenURL and transform it into something we can
+        # understand
+        if ($other->{openurl}) {
+            # We only want to transform once
+            delete $other->{openurl};
+            $params = _openurl_to_ill($params);
+        }
 
         # Pass the map of form fields in forms that can be used by TT
         # and JS
@@ -783,6 +795,74 @@ sub _fail {
         return 1 if ( !$val or $val eq '' );
     }
     return 0;
+}
+
+=head3 _openurl_to_ill
+
+Take a hashref of OpenURL parameters and return
+those same parameters but transformed to the ILL
+schema
+
+=cut
+
+sub _openurl_to_ill {
+    my ($params) = @_;
+
+    my $transform_metadata = {
+        genre   => 'RapidRequestType',
+        content => 'RapidRequestType',
+        format  => 'RapidRequestType',
+        atitle  => 'ArticleTitle',
+        aulast  => 'ArticleAuthor',
+        author  => 'ArticleAuthor',
+        date    => 'PatronJournalYear',
+        issue   => 'JournalIssue',
+        volume  => 'JournalVol',
+        isbn    => 'SuggestedIsbns',
+        issn    => 'SuggestedIssns',
+        rft_id  => '',
+        year    => 'PatronJournalYear',
+        title   => 'PatronJournalTitle',
+        author  => 'ArticleAuthor',
+        aulast  => 'ArticleAuthor',
+        pages   => 'ArticlePages',
+        ctitle  => 'ArticleTitle',
+        clast   => 'ArticleAuthor'
+    };
+
+    my $transform_value = {
+        RapidRequestType => {
+            fulltext   => 'Article',
+            selectedft => 'Article',
+            print      => 'Book',
+            ebook      => 'Book',
+            journal    => 'Article'
+        }
+    };
+
+    my $return = {};
+    # First make sure our keys are correct
+    foreach my $meta_key(keys %{$params->{other}}) {
+        # If we are transforming this property...
+        if (exists $transform_metadata->{$meta_key}) {
+            # ...do it if we have valid mapping
+            if (length $transform_metadata->{$meta_key} > 0) {
+                $return->{$transform_metadata->{$meta_key}} = $params->{other}->{$meta_key};
+            }
+        } else {
+            # Otherwise, pass it through untransformed
+            $return->{$meta_key} = $params->{other}->{$meta_key};
+        }
+    }
+    # Now check our values are correct
+    foreach my $val_key(keys %{$return}) {
+        my $value = $return->{$val_key};
+        if (exists $transform_value->{$val_key} && exists $transform_value->{$val_key}->{$value}) {
+            $return->{$val_key} = $transform_value->{$val_key}->{$value};
+        }
+    }
+    $params->{other} = $return;
+    return $params;
 }
 
 =head3 fieldmap
