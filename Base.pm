@@ -334,6 +334,8 @@ sub edititem {
                 # Insert all current attributes for this request
                 my $type = $other->{RapidRequestType};
                 my $fields = $self->fieldmap;
+
+                # First insert our RapidILL fields
                 foreach my $field(%{$other}) {
                     my $value = $other->{$field};
                     if (
@@ -342,6 +344,24 @@ sub edititem {
                         length $other->{$field} > 0
                     ) {
                         my @bind = ($submission->id, $field, $value, 0);
+                        $dbh->do ( q|
+                            INSERT INTO illrequestattributes
+                            (illrequest_id, type, value, readonly) VALUES
+                            (?, ?, ?, ?)
+                        |, undef, @bind);
+                    }
+                }
+
+                # Now insert our core equivalents
+                foreach my $field(%{$other}) {
+                    my $value = $other->{$field};
+                    if (
+                        grep( /^$type$/, @{$fields->{$field}->{materials}}) &&
+                        $other->{$field} &&
+                        $fields->{$field}->{ill} &&
+                        length $other->{$field} > 0
+                    ) {
+                        my @bind = ($submission->id, $fields->{$field}->{ill}, $value, 0);
                         $dbh->do ( q|
                             INSERT INTO illrequestattributes
                             (illrequest_id, type, value, readonly) VALUES
@@ -459,21 +479,25 @@ sub create_submission {
     $request->backend($self->name);
     $request->placed(DateTime->now);
     $request->updated(DateTime->now);
+
     $request->store;
 
     # Store the request attributes
     $self->create_illrequestattributes($request, $params->{other});
+    # Now store the core equivalents
+    $self->create_illrequestattributes($request, $params->{other}, 1);
+
     return $request;
 }
 
 =head3
 
-Store metadata for a given request
+Store metadata for a given request for our Rapid fields
 
 =cut
 
 sub create_illrequestattributes {
-    my ($self, $request, $metadata) = @_;
+    my ($self, $request, $metadata, $core) = @_;
 
     # Get the canonical list of metadata fields
     my $fields = $self->fieldmap;
@@ -484,12 +508,16 @@ sub create_illrequestattributes {
         # If this field is used in the selected material type
         if (
             grep( /^$type$/, @{$fields->{$field}->{materials}}) &&
+            # If we're working with core metadata, check if this field
+            # has a core equivalent
+            (($core && $fields->{$field}->{ill}) || !$core) &&
             $metadata->{$field} &&
             length $metadata->{$field} > 0
         ) {
+            my $att_type = $core ? $fields->{$field}->{ill} : $field;
             my $data = {
                 illrequest_id => $request->illrequest_id,
-                type          => $field,
+                type          => $att_type,
                 value         => $metadata->{$field},
                 readonly      => 0
             };
@@ -603,6 +631,8 @@ sub create_request {
                 value         => $rapid_id
             })->store;
         }
+        # Add the RapidILL ID to the orderid field
+        $submission->orderid($rapid_id);
         # Update the submission status
         $submission->status('REQ')->store;
 
@@ -724,7 +754,9 @@ sub metadata {
     my $metadata = {};
 
     while (my $attr = $attrs->next) {
-        $metadata->{$fields->{$attr->type}->{label}} = $attr->value;
+        if ($fields->{$attr->type}) {
+            $metadata->{$fields->{$attr->type}->{label}} = $attr->value;
+        }
     }
 
     return $metadata;
@@ -873,6 +905,7 @@ Key = API metadata element name
   exclude = Do not include on the entry form
   type = Does an element contain a string value or an array of string values?
   label = Display label
+  ill   = The core ILL equivalent field
   help = Display help text
   materials = Material types that expect this element (they may not *require* it)
  required = Hashref of material specific requirements
@@ -891,11 +924,13 @@ sub fieldmap {
             exclude   => 1,
             type      => "string",
             label     => "Material type",
+            ill       => "type",
             materials => [ "Article", "Book", "BookChapter" ]
         },
         SuggestedIssns => {
             type      => "array",
             label     => "ISSN",
+            ill       => "issn",
             help      => "Multiple ISSNs must be separated by a space",
             materials => [ "Article" ],
             required  => {
@@ -920,6 +955,7 @@ sub fieldmap {
         SuggestedIsbns => {
             type      => "array",
             label     => "ISBN",
+            ill       => "isbn",
             help      => "Multiple ISSNs must be separated by a space",
             materials => [ "Book", "BookChapter" ],
             required  => {
@@ -937,6 +973,7 @@ sub fieldmap {
         ArticleTitle => {
             type      => "string",
             label     => "Article title or book chapter title / number",
+            ill       => "article_title",
             materials => [ "Article", "BookChapter" ],
             required  => {
                 "Article" => {
@@ -950,11 +987,13 @@ sub fieldmap {
         ArticleAuthor => {
             type      => "string",
             label     => "Article author or book author",
+            ill       => "article_author",
             materials => [ "Article", "Book", "BookChapter" ]
         },
         ArticlePages => {
             type      => "string",
             label     => "Pages in journal or book extract",
+            ill       => "pages",
             materials => [ "Article", "BookChapter" ],
             required  => {
                 "Article" => {
@@ -968,11 +1007,13 @@ sub fieldmap {
         PatronJournalTitle => {
             type      => "string",
             label     => "Journal title or book title",
+            ill       => "title",
             materials => [ "Article", "Book", "BookChapter" ]
         },
         PatronJournalYear => {
             type      => "string",
             label     => "Four digit year of publication",
+            ill       => "year",
             materials => [ "Article", "Book", "BookChapter" ],
             required  => {
                 "Article" => {
@@ -983,6 +1024,7 @@ sub fieldmap {
         JournalVol => {
             type      => "string",
             label     => "Volume number",
+            ill       => "volume",
             materials => [ "Article", "Book", "BookChapter" ],
             required  => {
                 "Article" => {
@@ -993,26 +1035,31 @@ sub fieldmap {
         JournalIssue => {
             type      => "string",
             label     => "Journal issue number",
+            ill       => "issue",
             materials => [ "Article" ]
         },
         JournalMonth => {
             type      => "string",
+            ill       => "item_date",
             label     => "Journal month",
             materials => [ "Article" ]
         },
         Edition => {
             type      => "string",
             label     => "Book edition",
+            ill       => "part_edition",
             materials => [ "Book", "BookChapter" ]
         },
         Publisher => {
             type      => "string",
             label     => "Book publisher",
+            ill       => "publisher",
             materials => [ "Book", "BookChapter" ]
         },
         RapidRequestId => {
             exclude   => 1,
             type      => "string",
+            ill       => "associated_id",
             label     => "RapidILL identifier",
             materials => [ "Article", "Book", "BookChapter" ]
         }
