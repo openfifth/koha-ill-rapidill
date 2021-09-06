@@ -24,7 +24,6 @@ use warnings;
 use JSON qw( to_json from_json );
 use File::Basename qw( dirname );
 
-use Koha::Illbackends::RapidILL::Lib::Config;
 use Koha::Illbackends::RapidILL::Lib::API;
 use Koha::Libraries;
 use Koha::Patrons;
@@ -34,11 +33,9 @@ our $VERSION = "1.0.0";
 sub new {
     my ($class, $params) = @_;
 
-    my $config = Koha::Illbackends::RapidILL::Lib::Config->new( $params->{config} );
-    my $api = Koha::Illbackends::RapidILL::Lib::API->new($config, $VERSION);
+    my $api = Koha::Illbackends::RapidILL::Lib::API->new($VERSION);
 
     my $self = {
-        config  => $config,
         _api    => $api
     };
 
@@ -160,7 +157,7 @@ sub create {
             $response->{value}  = $params;
             return $response;
         }
-        elsif ( !$self->_validate_metadata($other) ) {
+        elsif ( !$other->{opac} && !$self->_validate_metadata($other) ) {
             # We don't have sufficient metadata for request creation,
             # create a local submission for later attention
             $self->create_submission($params);

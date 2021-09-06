@@ -36,7 +36,7 @@ RapidILL - Client interface to RapidILL API plugin (koha-plugin-rapidill)
 =cut
 
 sub new {
-    my ($class, $config, $VERSION) = @_;
+    my ($class) = @_;
 
     my $cgi = new CGI;
 
@@ -55,10 +55,8 @@ sub new {
     my $uri = URI->new($url);
 
     my $self = {
-        version => $VERSION,
         ua      => LWP::UserAgent->new,
         cgi     => new CGI,
-        config  => $config,
         logger  => Koha::Logger->get({ category => 'Koha.Illbackends.RapidILL.Lib.API' }),
         baseurl => $uri->scheme . "://localhost:" . $uri->port . "/api/v1/contrib/rapidill"
 #        baseurl => $uri->scheme . "://" . $uri->host . ":" . $uri->port . "/api/v1/contrib/rapidill"
