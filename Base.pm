@@ -358,6 +358,10 @@ sub edititem {
                         $fields->{$field}->{ill} &&
                         length $other->{$field} > 0
                     ) {
+                        # The value might need mapping to a core equivalent
+                        $value = ($fields->{$field}->{value_map}) ?
+                            $fields->{$field}->{value_map}->{$value} :
+                            $value;
                         my @bind = ($submission->id, $fields->{$field}->{ill}, $value, 0);
                         $dbh->do ( q|
                             INSERT INTO illrequestattributes
@@ -382,6 +386,132 @@ sub edititem {
             field_map      => $self->fieldmap,
             field_map_json => to_json($self->fieldmap)
         };
+    }
+}
+
+=head3 migrate
+
+Migrate a request into or out of this backend
+
+=cut
+
+sub migrate {
+    my ( $self, $params ) = @_;
+    my $other = $params->{other};
+
+    my $stage = $other->{stage};
+    my $step  = $other->{step};
+
+    my $fields = $self->fieldmap;
+
+    # We may be receiving a submitted form due to the user having
+    # changed request material type, so we just need to go straight
+    # back to the form, the type has been changed in the params
+    if (defined $other->{change_type}) {
+        delete $other->{change_type};
+        return {
+            cwd     => dirname(__FILE__),
+            error   => 0,
+            status  => '',
+            message => '',
+            method  => 'create',
+            stage   => 'form',
+            value   => $params,
+            field_map => $self->fieldmap,
+            field_map_json => to_json($self->fieldmap)
+        };
+    }
+
+    # Recieve a new request from another backend and suppliment it with
+    # anything we require specifically for this backend.
+    if ( !$stage || $stage eq 'immigrate' ) {
+        my $original_request =
+          Koha::Illrequests->find( $other->{illrequest_id} );
+        my $new_request = $params->{request};
+        $new_request->borrowernumber( $original_request->borrowernumber );
+        $new_request->branchcode( $original_request->branchcode );
+        $new_request->status('NEW');
+        $new_request->backend( $self->name );
+        $new_request->placed( DateTime->now );
+        $new_request->updated( DateTime->now );
+        $new_request->store;
+
+        # Map from Koha's core fields to our metadata fields
+        my $original_id = $original_request->illrequest_id;
+        my @original_attributes = $original_request->illrequestattributes->search(
+            { illrequest_id => $original_id }
+        );
+        my @attributes = keys %{$fields};
+
+        # Look for an equivalent Rapid attribute 
+        # for every bit of metadata we receive and, if it exists, map it to the
+        # new property
+        my $new_attributes = {};
+        foreach my $old(@original_attributes) {
+            my $rapid = $self->find_rapid_property($old->type);
+            if ($rapid) {
+                # The value may also need mapping
+                my $rapid_value = $self->find_rapid_value($rapid, $old->value);                
+                my $value = $rapid_value ? $rapid_value : $old->value;
+                $new_attributes->{$rapid} = $value;
+            }
+        }
+        $new_attributes->{migrated_from} = $original_request->illrequest_id;
+        while ( my ( $type, $value ) = each %{$new_attributes} ) {
+            Koha::Illrequestattribute->new(
+                {
+                    illrequest_id => $new_request->illrequest_id,
+                    type          => $type,
+                    value         => $value,
+                    readonly      => 0
+                }
+            )->store;
+        }
+
+        return {
+            error   => 0,
+            status  => '',
+            message => '',
+            method  => 'migrate',
+            stage   => 'commit',
+            next    => 'emigrate',
+            value   => $params,
+            field_map => $self->fieldmap,
+            field_map_json => to_json($self->fieldmap)
+        };
+    
+    } elsif ($stage eq 'emigrate') {
+        # We need to cancel any outstanding request with Rapid and then
+        # update our local submission
+        # Get the request we've migrated from
+        my $new_request = $params->{request};
+        my $from_id = $new_request->illrequestattributes->find(
+            { type => 'migrated_from' } )->value;
+        my $request = Koha::Illrequests->find($from_id);
+
+        my $return = {
+            error   => 0,
+            status  => '',
+            message => '',
+            method  => 'migrate',
+            stage   => 'commit',
+            next    => 'illview',
+            value   => $params,
+            field_map => $self->fieldmap,
+            field_map_json => to_json($self->fieldmap)
+        };
+
+        # Cancel a Rapid request if necessary
+        my $cancellation = $self->cancel({ request => $request });
+
+        # If there was a problem cancelling with Rapid, we need to pass
+        # that on
+        if ($cancellation->{error}) {
+            $return->{error} = $cancellation->{error};
+            $return->{message} = $cancellation->{message};
+        }
+
+        return $return;
     }
 }
 
@@ -512,10 +642,14 @@ sub create_illrequestattributes {
             length $metadata->{$field} > 0
         ) {
             my $att_type = $core ? $fields->{$field}->{ill} : $field;
+            # We might need to map the attribute value to our core equivalent
+            my $att_value = ($core && $fields->{$field}->{value_map}) ?
+                $fields->{$field}->{value_map}->{$metadata->{$field}} :
+                $metadata->{$field};
             my $data = {
                 illrequest_id => $request->illrequest_id,
                 type          => $att_type,
-                value         => $metadata->{$field},
+                value         => $att_value,
                 readonly      => 0
             };
             Koha::Illrequestattribute->new($data)->store;
@@ -774,6 +908,8 @@ sub capabilities {
     my $capabilities = {
         # View and manage a request
         illview => sub { illview(@_); },
+        # Migrate
+        migrate => sub { $self->migrate(@_); }
     };
     return $capabilities->{$name};
 }
@@ -806,6 +942,16 @@ sub status_graph {
             method         => 'confirm',
             next_actions   => [ 'REQREV', 'COMP', 'CHK' ],
             ui_method_icon => 'fa-check',
+        },
+        MIG => {
+            prev_actions =>
+              [ 'NEW', 'REQ', 'GENREQ', 'REQREV', 'QUEUED', 'CANCREQ', ],
+            id             => 'MIG',
+            name           => 'Switched provider',
+            ui_method_name => 'Switch provider',
+            method         => 'migrate',
+            next_actions   => [],
+            ui_method_icon => 'fa-search',
         },        
     };
 }
@@ -824,6 +970,43 @@ sub _fail {
         return 1 if ( !$val or $val eq '' );
     }
     return 0;
+}
+
+=head3 find_rapid_property
+
+Given a core property name, find the equivalent Rapid
+name. Or undef if there is not one
+
+=cut
+
+sub find_rapid_property {
+    my ($self, $core) = @_;
+    my $fields = $self->fieldmap;
+    foreach my $field(keys %{$fields}) {
+        if ($fields->{$field}->{ill} && $fields->{$field}->{ill} eq $core) {
+            return $field;
+        }
+    }
+}
+
+=head3 find_rapid_value
+
+Given a Rapid property name and core value, find the equivalent Rapid
+value. Or undef if there is not one
+
+=cut
+
+sub find_rapid_value {
+    my ($self, $rapid_prop, $core_val) = @_;
+    my $fields = $self->fieldmap;
+    if ($fields->{$rapid_prop}->{value_map}) {
+        my $map = $fields->{$rapid_prop}->{value_map};
+        while (my($key, $value) = each%{$map}) {
+            if ($map->{$key} eq $core_val) {
+                return $key;
+            }
+        }
+    }
 }
 
 =head3 _openurl_to_ill
@@ -904,6 +1087,7 @@ Key = API metadata element name
   label = Display label
   ill   = The core ILL equivalent field
   help = Display help text
+  value_map = Do the Rapid values need mapping to core values
   materials = Material types that expect this element (they may not *require* it)
  required = Hashref of material specific requirements
   Key = Material type that enforces this requirement
@@ -922,6 +1106,11 @@ sub fieldmap {
             type      => "string",
             label     => "Material type",
             ill       => "type",
+            value_map => {
+                Book        => 'book',
+                Article     => 'article',
+                BookChapter => 'book'
+            },
             materials => [ "Article", "Book", "BookChapter" ]
         },
         SuggestedIssns => {
