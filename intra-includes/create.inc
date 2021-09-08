@@ -58,13 +58,14 @@
           [% END %]
         </select>
       </li>
-      [% FOREACH field IN whole.field_map.keys.sort %]
-      [% IF !whole.field_map.$field.exclude %]
-      <li id="rapid_field_[% field %]">
-        <label for="[% field %]">[% whole.field_map.$field.label %]:</label>
-        <input type="text" name="[% field %]" id="[% field %]" value="[% whole.value.other.$field %]" />
-        [% IF whole.field_map.$field.help %]
-        ([% whole.field_map.$field.help %])
+      [% FOREACH field IN whole.field_map %]
+      [% key = field.key %]
+      [% IF !field.exclude %]
+      <li id="rapid_field_[% key %]">
+        <label for="[% key %]">[% field.label %]:</label>
+        <input type="text" name="[% key %]" id="[% key %]" value="[% whole.value.other.$key %]" />
+        [% IF field.help %]
+        ([% field.help %])
         [% END %]
       </li>
       [% END %]

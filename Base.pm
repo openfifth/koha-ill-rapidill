@@ -72,7 +72,7 @@ sub create {
         status         => "",
         message        => "",
         error          => 0,
-        field_map      => $self->fieldmap(),
+        field_map      => $self->fieldmap_sorted,
         field_map_json => to_json($self->fieldmap())
     };
 
@@ -124,7 +124,7 @@ sub create {
 
         # Pass the map of form fields in forms that can be used by TT
         # and JS
-        $response->{field_map} = $self->fieldmap();
+        $response->{field_map} = $self->fieldmap_sorted;
         $response->{field_map_json} = to_json($self->fieldmap());
         # We just need to request the snippet that builds the Creation
         # interface.
@@ -138,7 +138,7 @@ sub create {
         if ( _fail( $other->{'branchcode'} ) ) {
             # Pass the map of form fields in forms that can be used by TT
             # and JS
-            $response->{field_map} = $self->fieldmap();
+            $response->{field_map} = $self->fieldmap_sorted;
             $response->{field_map_json} = to_json($self->fieldmap());
             $response->{status} = "missing_branch";
             $response->{error}  = 1;
@@ -149,7 +149,7 @@ sub create {
         elsif ( !Koha::Libraries->find( $other->{'branchcode'} ) ) {
             # Pass the map of form fields in forms that can be used by TT
             # and JS
-            $response->{field_map} = $self->fieldmap();
+            $response->{field_map} = $self->fieldmap_sorted;
             $response->{field_map_json} = to_json($self->fieldmap());
             $response->{status} = "invalid_branch";
             $response->{error}  = 1;
@@ -289,7 +289,7 @@ sub edititem {
             method  => 'edititem',
             stage   => 'form',
             value   => $params,
-            field_map => $self->fieldmap,
+            field_map => $self->fieldmap_sorted,
             field_map_json => to_json($self->fieldmap)
         };
     } elsif ( $stage eq 'form' ) {
@@ -311,7 +311,7 @@ sub edititem {
                 method  => 'edititem',
                 stage   => 'form',
                 value   => $params,
-                field_map => $self->fieldmap,
+                field_map => $self->fieldmap_sorted,
                 field_map_json => to_json($self->fieldmap)
             };
         }
@@ -383,7 +383,7 @@ sub edititem {
             stage          => 'commit',
             next           => 'illview',
             value          => $params,
-            field_map      => $self->fieldmap,
+            field_map      => $self->fieldmap_sorted,
             field_map_json => to_json($self->fieldmap)
         };
     }
@@ -417,7 +417,7 @@ sub migrate {
             method  => 'create',
             stage   => 'form',
             value   => $params,
-            field_map => $self->fieldmap,
+            field_map => $self->fieldmap_sorted,
             field_map_json => to_json($self->fieldmap)
         };
     }
@@ -476,7 +476,7 @@ sub migrate {
             stage   => 'commit',
             next    => 'emigrate',
             value   => $params,
-            field_map => $self->fieldmap,
+            field_map => $self->fieldmap_sorted,
             field_map_json => to_json($self->fieldmap)
         };
     
@@ -497,7 +497,7 @@ sub migrate {
             stage   => 'commit',
             next    => 'illview',
             value   => $params,
-            field_map => $self->fieldmap,
+            field_map => $self->fieldmap_sorted,
             field_map_json => to_json($self->fieldmap)
         };
 
@@ -1077,6 +1077,32 @@ sub _openurl_to_ill {
     return $params;
 }
 
+=head3 fieldmap_sorted
+
+Return the fieldmap sorted by "order"
+Note: The key of the field is added as a "key"
+property of the returned hash
+
+=cut
+
+sub fieldmap_sorted {
+    my ($self) = @_;
+
+    my $fields = $self->fieldmap;
+
+    my @out = ();
+
+    foreach my $key (sort {
+        $fields->{$a}->{position} <=> $fields->{$b}->{position}
+    } keys %{$fields}) {
+        my $el = $fields->{$key};
+        $el->{key} = $key;
+        push @out, $el;
+    }
+
+    return \@out;
+}
+
 =head3 fieldmap
 
 All fields expected by the API
@@ -1106,6 +1132,7 @@ sub fieldmap {
             type      => "string",
             label     => "Material type",
             ill       => "type",
+            position  => 99,
             value_map => {
                 Book        => 'book',
                 Article     => 'article',
@@ -1117,6 +1144,7 @@ sub fieldmap {
             type      => "array",
             label     => "ISSN",
             ill       => "issn",
+            position  => 11,
             help      => "Multiple ISSNs must be separated by a space",
             materials => [ "Article" ],
             required  => {
@@ -1128,6 +1156,7 @@ sub fieldmap {
         OclcNumber => {
             type      => "string",
             label     => "OCLC Accession number",
+            position  => 13,
             materials => [ "Article", "Book", "BookChapter" ],
             required  => {
                 "Article" => {
@@ -1142,6 +1171,7 @@ sub fieldmap {
             type      => "array",
             label     => "ISBN",
             ill       => "isbn",
+            position  => 10,
             help      => "Multiple ISSNs must be separated by a space",
             materials => [ "Book", "BookChapter" ],
             required  => {
@@ -1153,6 +1183,7 @@ sub fieldmap {
         SuggestedLccns => {
             type      => "array",
             label     => "LCCN",
+            position  => 12,
             help      => "Multiple LCCNs must be separated by a space",
             materials => [ "Book", "BookChapter" ]
         },
@@ -1160,6 +1191,7 @@ sub fieldmap {
             type      => "string",
             label     => "Article title or book chapter title / number",
             ill       => "article_title",
+            position  => 1,
             materials => [ "Article", "BookChapter" ],
             required  => {
                 "Article" => {
@@ -1174,12 +1206,14 @@ sub fieldmap {
             type      => "string",
             label     => "Article author or book author",
             ill       => "article_author",
+            position  => 2,
             materials => [ "Article", "Book", "BookChapter" ]
         },
         ArticlePages => {
             type      => "string",
             label     => "Pages in journal or book extract",
             ill       => "pages",
+            position  => 9,
             materials => [ "Article", "BookChapter" ],
             required  => {
                 "Article" => {
@@ -1194,12 +1228,14 @@ sub fieldmap {
             type      => "string",
             label     => "Journal title or book title",
             ill       => "title",
+            position  => 0,
             materials => [ "Article", "Book", "BookChapter" ]
         },
         PatronJournalYear => {
             type      => "string",
             label     => "Four digit year of publication",
             ill       => "year",
+            position  => 8,
             materials => [ "Article", "Book", "BookChapter" ],
             required  => {
                 "Article" => {
@@ -1211,6 +1247,7 @@ sub fieldmap {
             type      => "string",
             label     => "Volume number",
             ill       => "volume",
+            position  => 4,
             materials => [ "Article", "Book", "BookChapter" ],
             required  => {
                 "Article" => {
@@ -1222,11 +1259,13 @@ sub fieldmap {
             type      => "string",
             label     => "Journal issue number",
             ill       => "issue",
+            position  => 5,
             materials => [ "Article" ]
         },
         JournalMonth => {
             type      => "string",
             ill       => "item_date",
+            position  => 7,
             label     => "Journal month",
             materials => [ "Article" ]
         },
@@ -1234,12 +1273,14 @@ sub fieldmap {
             type      => "string",
             label     => "Book edition",
             ill       => "part_edition",
+            position  => 3,
             materials => [ "Book", "BookChapter" ]
         },
         Publisher => {
             type      => "string",
             label     => "Book publisher",
             ill       => "publisher",
+            position  => 6,
             materials => [ "Book", "BookChapter" ]
         },
         RapidRequestId => {
@@ -1247,6 +1288,7 @@ sub fieldmap {
             type      => "string",
             ill       => "associated_id",
             label     => "RapidILL identifier",
+            position  => 99,
             materials => [ "Article", "Book", "BookChapter" ]
         }
     };
