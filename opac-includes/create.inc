@@ -38,17 +38,6 @@
     <input name="method" id="method" value="create" type="hidden"/>
     <input name="backend" id="backend" value="[% whole.value.other.backend %]" type="hidden"/>
     <ol>
-      [% FOREACH field IN whole.field_map.keys.sort %]
-      [% IF !whole.field_map.$field.exclude %]
-      <li id="rapid_field_[% field %]">
-        <label for="[% field %]">[% whole.field_map.$field.label %]:</label>
-        <input type="text" name="[% field %]" id="[% field %]" value="[% whole.value.other.$field %]" />
-        [% IF whole.field_map.$field.help %]
-        <span class="rapid_hint">([% whole.field_map.$field.help %])</span>
-        [% END %]
-      </li>
-      [% END %]
-      [% END %]
       <li>
         <label for="RapidRequestType">Type:</label>
         <select name="RapidRequestType" id="type">
@@ -62,6 +51,17 @@
           [% END %]
         </select>
       </li>
+      [% FOREACH field IN whole.field_map.keys.sort %]
+      [% IF !whole.field_map.$field.exclude %]
+      <li id="rapid_field_[% field %]">
+        <label for="[% field %]">[% whole.field_map.$field.label %]:</label>
+        <input type="text" name="[% field %]" id="[% field %]" value="[% whole.value.other.$field %]" />
+        [% IF whole.field_map.$field.help %]
+        <span class="rapid_hint">([% whole.field_map.$field.help %])</span>
+        [% END %]
+      </li>
+      [% END %]
+      [% END %]
     </ol>
   </fieldset>
   <fieldset class="rows">
