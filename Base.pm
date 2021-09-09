@@ -882,11 +882,16 @@ sub metadata {
     my $attrs = $request->illrequestattributes;
     my $fields = $self->fieldmap;
 
+    my $type = $attrs->find({ type => "type" })->value;
+
     my $metadata = {};
 
     while (my $attr = $attrs->next) {
         if ($fields->{$attr->type}) {
-            $metadata->{$fields->{$attr->type}->{label}} = $attr->value;
+            my $label = ref $fields->{$attr->type}->{label} eq "HASH" ?
+                $fields->{$attr->type}->{label}->{$type} :
+                $fields->{$attr->type}->{label};
+            $metadata->{$label} = $attr->value;
         }
     }
 
@@ -1189,7 +1194,10 @@ sub fieldmap {
         },
         ArticleTitle => {
             type      => "string",
-            label     => "Article title or book chapter title / number",
+            label     => {
+                Article     => "Article title",
+                BookChapter => "Book chapter title / number"
+            },
             ill       => "article_title",
             position  => 1,
             materials => [ "Article", "BookChapter" ],
@@ -1204,14 +1212,21 @@ sub fieldmap {
         },
         ArticleAuthor => {
             type      => "string",
-            label     => "Article author or book author",
+            label     => {
+                Article     => "Article author",
+                Book        => "Book author",
+                BookChapter => "Book author"
+            },
             ill       => "article_author",
             position  => 2,
             materials => [ "Article", "Book", "BookChapter" ]
         },
         ArticlePages => {
             type      => "string",
-            label     => "Pages in journal or book extract",
+            label     => {
+                Article     => "Pages in journal",
+                BookChapter => "Pages in book extract"
+            },
             ill       => "pages",
             position  => 9,
             materials => [ "Article", "BookChapter" ],
@@ -1226,7 +1241,11 @@ sub fieldmap {
         },
         PatronJournalTitle => {
             type      => "string",
-            label     => "Journal title or book title",
+            label     => {
+                Article     => "Journal title",
+                Book        => "Book title",
+                BookChapter => "Book title"
+            },
             ill       => "title",
             position  => 0,
             materials => [ "Article", "Book", "BookChapter" ]

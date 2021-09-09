@@ -62,7 +62,7 @@
       [% key = field.key %]
       [% IF !field.exclude %]
       <li id="rapid_field_[% key %]">
-        <label for="[% key %]">[% field.label %]:</label>
+        <label id="[% key %]_label" for="[% key %]"></label>
         <input type="text" name="[% key %]" id="[% key %]" value="[% whole.value.other.$key %]" />
         [% IF field.help %]
         ([% field.help %])
@@ -133,10 +133,12 @@
       var listenerSelectors = '';
 
       var fieldmap = [% whole.field_map_json %];
+      addLabels();
       showFields();
       validateFields();
       addHandlers();
       $('#type').change(function() {
+          addLabels();
           showFields();
           validateFields();
           addHandlers();

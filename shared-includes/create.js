@@ -1,3 +1,15 @@
+// Add the appropriate label for each input
+function addLabels() {
+    var selected = $('#type').val();
+    Object.keys(fieldmap).forEach(function (key) {
+        var label = typeof fieldmap[key].label === 'object' ?
+            fieldmap[key].label[selected] :
+            fieldmap[key].label;
+        $('#' + key + '_label').text(label);
+    });
+
+};
+
 // Show or hide fields depending on selected type
 function showFields() {
     var selected = $('#type').val();
@@ -258,16 +270,19 @@ function gatherMetadata() {
 
 // Validate fields and display warnings
 function validateFields() {
+    var type = $('#type').val();
     // Get our validation groups
     var messages = [];
     var groups = buildValidationGroups();
     Object.values(groups).forEach(function (fields) {
         if (!isGroupValid(fields)) {
             var fieldNames = fields.map(function (field) {
-                return fieldmap[field].label;
+                return typeof fieldmap[field].label === 'object' ?
+                    fieldmap[field].label[type] :
+                    fieldmap[field].label;
             });
             messages.push(
-                "You must complete at least one of the following fields: " + fieldNames.join(', ')
+                _("You must complete at least one of the following fields: ") + fieldNames.join(', ')
             );
         }
     });
@@ -277,7 +292,7 @@ function validateFields() {
         if (!inpVal || inpVal.length === 0) {
             var name = $('body').find('label[for="' + key + '"]').text().replace(/:/, '');
             messages.push(
-                '"' + name + '" cannot be empty'
+                '"' + name + _('" cannot be empty')
             );
         }
     });

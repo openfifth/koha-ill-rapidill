@@ -55,7 +55,7 @@
       [% key = field.key %]
       [% IF !field.exclude %]
       <li id="rapid_field_[% key %]">
-        <label for="[% key %]">[% field.label %]:</label>
+        <label id="[% key %]_label" for="[% key %]"></label>
         <input type="text" name="[% key %]" id="[% key %]" value="[% whole.value.other.$key %]" />
         [% IF field.help %]
         ([% field.help %])
@@ -102,14 +102,16 @@
 
     [% INCLUDE "${cwd}/shared-includes/create.js" %]
 
+    addLabels();
     showFields();
     validateFields();
     addHandlers();
 
     $('#type').change(function() {
-        showFields();
-        validateFields();
-        addHandlers();
+      addLabels();
+      showFields();
+      validateFields();
+      addHandlers();
     });
   });
 </script>

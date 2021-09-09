@@ -1,3 +1,5 @@
+[% cwd = whole.cwd %]
+
 <h2>Edit request</h2>
 <form method="POST" action="[% here %]" id="edit_form">
   <fieldset class="rows">
@@ -24,7 +26,7 @@
       [% key = field.key %]
       [% IF !field.exclude %]
       <li id="rapid_field_[% key %]">
-        <label for="[% key %]">[% field.label %]:</label>
+        <label id="[% key %]_label" for="[% key %]"></label>
         <input type="text" name="[% key %]" id="[% key %]" value="[% whole.value.other.$key %]" />
         [% IF field.help %]
         ([% field.help %])
@@ -42,6 +44,12 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function(){
+        var listenerSelectors = '';
+
+        var fieldmap = [% whole.field_map_json %];
+        addLabels();
+        showFields();
+
         // Handle the "type" being changed
         $('#type').change(function() {
           if ($('#change_type').length > 0) {
@@ -52,20 +60,8 @@
           );
           $('#edit_form').submit();
         });
-        // Show / hide fields depending on material type selected
-        var fieldmap = [% whole.field_map_json %];
-        showFields();
-        $('#type').change(showFields);
-        function showFields() {
-          var selected = $('#type').val();
-          Object.keys(fieldmap).forEach(function(key) {
-            if (fieldmap[key].materials.indexOf(selected) == -1) {
-              $('#rapid_field_' + key).hide();
-            } else {
-              $('#rapid_field_' + key).show();
-            }
-          });
-        };
+
+        [% INCLUDE "${cwd}/shared-includes/create.js" %]
     });
     //]]>
 </script>
