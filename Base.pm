@@ -882,7 +882,7 @@ sub metadata {
     my $attrs = $request->illrequestattributes;
     my $fields = $self->fieldmap;
 
-    my $type = $attrs->find({ type => "type" })->value;
+    my $type = $attrs->find({ type => "RapidRequestType" })->value;
 
     my $metadata = {};
 
