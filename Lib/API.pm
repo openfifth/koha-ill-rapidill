@@ -58,8 +58,7 @@ sub new {
         ua      => LWP::UserAgent->new,
         cgi     => new CGI,
         logger  => Koha::Logger->get({ category => 'Koha.Illbackends.RapidILL.Lib.API' }),
-        baseurl => $uri->scheme . "://localhost:" . $uri->port . "/api/v1/contrib/rapidill"
-#        baseurl => $uri->scheme . "://" . $uri->host . ":" . $uri->port . "/api/v1/contrib/rapidill"
+        baseurl => $uri->scheme . "://" . $uri->host . ":" . $uri->port . "/api/v1/contrib/rapidill"
     };
 
     bless $self, $class;
