@@ -895,6 +895,18 @@ sub metadata {
         }
     }
 
+    # OPAC list view uses completely different property names for author
+    # and title. Cater for that.
+    if ($type eq "Article" || $type eq "BookChapter") {
+        my $title_key = $fields->{ArticleTitle}->{label}->{$type};
+        my $author_key = $fields->{ArticleAuthor}->{label}->{$type};
+        $metadata->{Title} = $metadata->{$title_key} if $metadata->{$title_key};
+        $metadata->{Author} = $metadata->{$author_key} if $metadata->{$author_key};
+    } elsif ($type eq "Book") {
+        $metadata->{Title} = $metadata->{'Book title'} if $metadata->{'Book title'};
+        $metadata->{Author} = $metadata->{'Book author'} if $metadata->{'Book author'};
+    }
+
     return $metadata;
 }
 
