@@ -79,7 +79,7 @@ sub InsertRequest {
     my @name = grep { defined } ($borrower->firstname, $borrower->surname);
 
     # Request including passed metadata and credentials
-    my $body = encode_json({
+    my $body = {
         borrowerId => $borrowernumber,
         metadata => {
             PatronId             => $borrower->borrowernumber,
@@ -88,14 +88,14 @@ sub InsertRequest {
             DoBlockLocalOnly     => 0,
             %{$metadata}
         }
-    });
+    };
 
     $body->{metadata}->{PatronEmail} = $borrower->email if $borrower->email;
 
     my $request = HTTP::Request->new( 'POST', $self->{baseurl} . "/insertrequest" );
 
     $request->header( "Content-type" => "application/json" );
-    $request->content( $body );
+    $request->content( encode_json($body) );
 
     return $self->{ua}->request( $request );
 }
