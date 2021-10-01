@@ -1189,7 +1189,7 @@ sub fieldmap {
             label     => "ISBN",
             ill       => "isbn",
             position  => 10,
-            help      => "Multiple ISSNs must be separated by a space",
+            help      => "Multiple ISBNs must be separated by a space",
             materials => [ "Book", "BookChapter" ],
             required  => {
                 "Book" => {
