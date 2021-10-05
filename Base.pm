@@ -630,6 +630,14 @@ sub create_illrequestattributes {
     my $fields = $self->fieldmap;
 
     my $type = $metadata->{RapidRequestType};
+
+    # Get any existing illrequestattributes for this request,
+    # so we can avoid trying to create duplicates
+    my $existing_attrs = $request->illrequestattributes->unblessed;
+    my $existing_hash = {};
+    foreach my $a(@{$existing_attrs}) {
+        $existing_hash->{lc $a->{type}} = $a->{value};
+    }
     # Iterate our list of fields
     foreach my $field (keys %{$fields}) {
         # If this field is used in the selected material type
@@ -646,13 +654,17 @@ sub create_illrequestattributes {
             my $att_value = ($core && $fields->{$field}->{value_map}) ?
                 $fields->{$field}->{value_map}->{$metadata->{$field}} :
                 $metadata->{$field};
-            my $data = {
-                illrequest_id => $request->illrequest_id,
-                type          => $att_type,
-                value         => $att_value,
-                readonly      => 0
-            };
-            Koha::Illrequestattribute->new($data)->store;
+
+            # If it doesn't already exist for this request
+            if (!exists $existing_hash->{lc $att_type}) {
+                my $data = {
+                    illrequest_id => $request->illrequest_id,
+                    type          => $att_type,
+                    value         => $att_value,
+                    readonly      => 0
+                };
+                Koha::Illrequestattribute->new($data)->store;
+            }
         }
     }
 }
