@@ -133,7 +133,7 @@ sub create {
         return $response;
     }
     # Validate form and perform search if valid
-    elsif ( $stage eq 'validate') {
+    elsif ( $stage eq 'validate' || $stage eq 'form' ) {
 
         if ( _fail( $other->{'branchcode'} ) ) {
             # Pass the map of form fields in forms that can be used by TT
@@ -938,9 +938,22 @@ sub capabilities {
         # View and manage a request
         illview => sub { illview(@_); },
         # Migrate
-        migrate => sub { $self->migrate(@_); }
+        migrate => sub { $self->migrate(@_); },
+        # Return whether we are ready to display availability
+        should_display_availability => sub { _can_create_request(@_) }
     };
     return $capabilities->{$name};
+}
+
+=head3 _can_create_request
+
+Given the parameters we've been passed, should we create the request
+
+=cut
+
+sub _can_create_request {
+     my ($params) = @_;
+     return ( defined $params->{'stage'} ) ? 1 : 0;
 }
 
 
