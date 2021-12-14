@@ -300,3 +300,7 @@ function validateFields() {
     manageSubmit(messages);
     debounce(requestability, 1000)(messages);
 };
+
+$('#rapid_submit').click(function() {
+  $(this).prop('disabled', true);
+});
