@@ -113,9 +113,6 @@
       validateFields();
       addHandlers();
     });
-    $('#rapid_submit').click(function() {
-        $(this).prop('disabled', true);
-    });
   });
 </script>
 [% END %]

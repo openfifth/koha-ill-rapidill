@@ -162,9 +162,6 @@
           .append( "<a>" + item.surname + ", " + item.firstname + " (" + item.cardnumber + ") <small>" + item.address + " " + item.city + " " + item.zipcode + " " + item.country + "</small></a>" )
           .appendTo( ul );
       };
-      $('#rapid_submit').click(function() {
-        $(this).prop('disabled', true);
-      });
   });
   //]]>
 </script>
