@@ -31,7 +31,7 @@
 <p>We have now created your request.</p>
 
 [% ELSIF whole.stage == "init" %]
-<form method="POST">
+<form method="POST" id="create_form">
   <fieldset class="rows">
     <legend>Place an interlibrary loan request</legend>
     <input name="stage" id="stage" value="validate" type="hidden"/>
