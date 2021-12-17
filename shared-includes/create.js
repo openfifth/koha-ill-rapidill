@@ -302,5 +302,6 @@ function validateFields() {
 };
 
 $('#rapid_submit').click(function() {
+  $('#create_form').submit();
   $(this).prop('disabled', true);
 });
