@@ -54,6 +54,9 @@
       [% FOREACH field IN whole.field_map %]
       [% key = field.key %]
       [% IF !field.exclude %]
+      [% IF field.hide %]
+      <div style="display:none">
+      [% END %]
       <li id="rapid_field_[% key %]">
         <label id="[% key %]_label" for="[% key %]"></label>
         <input type="text" name="[% key %]" id="[% key %]" value="[% whole.value.other.$key %]" />
@@ -61,6 +64,9 @@
         ([% field.help %])
         [% END %]
       </li>
+      [% IF field.hide %]
+      </div>
+      [% END %]
       [% END %]
       [% END %]
     </ol>
