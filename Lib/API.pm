@@ -125,4 +125,25 @@ sub UpdateRequest {
     return $self->{ua}->request( $request );
 }
 
+=head3 RetrieveRequestInfo
+
+Make a call to the retrieverequestinfo API endpoint
+
+=cut
+
+sub RetrieveRequestInfo {
+    my ($self, $request_id) = @_;
+
+    my $body = encode_json({
+        requestId => $request_id
+    });
+
+    my $request = HTTP::Request->new( 'POST', $self->{baseurl} . "/retrieverequestinfo" );
+
+    $request->header( "Content-type" => "application/json" );
+    $request->content( $body );
+
+    return $self->{ua}->request( $request );
+}
+
 1;
