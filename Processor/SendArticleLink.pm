@@ -68,13 +68,13 @@ END_MESSAGE
         if (length $options->{status_to} > 0) {
             $self->debug_msg("Setting request status to " . $options->{status_to});
             if (!$options->{dry_run}) {
-                $request->status($options->{status_to});
+                $request->status($options->{status_to})->store;
             }
         }
         if (length $options->{status_alias_to} > 0) {
             $self->debug_msg("Setting request status alias to " . $options->{status_alias_to});
             if (!$options->{dry_run}) {
-                $request->status_alias($options->{status_alias_to});
+                $request->status_alias($options->{status_alias_to})->store;
             }
         }
     }
