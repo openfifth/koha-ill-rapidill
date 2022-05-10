@@ -36,9 +36,8 @@ sub run {
     }
 
     my $update_text = <<"END_MESSAGE";
-    Your request has been fulfilled, it can be accessed here:
-    URL: $address
-    Password: $password
+    $address
+    $password
 END_MESSAGE
 
     # Try to send the notice if appropriate
