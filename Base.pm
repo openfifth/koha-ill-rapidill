@@ -342,7 +342,7 @@ sub edititem {
                     ) {
                         my @bind = ($submission->id, $field, $value, 0);
                         $dbh->do ( q|
-                            INSERT INTO illrequestattributes
+                            INSERT IGNORE INTO illrequestattributes
                             (illrequest_id, type, value, readonly) VALUES
                             (?, ?, ?, ?)
                         |, undef, @bind);
@@ -364,7 +364,7 @@ sub edititem {
                             $value;
                         my @bind = ($submission->id, $fields->{$field}->{ill}, $value, 0);
                         $dbh->do ( q|
-                            INSERT INTO illrequestattributes
+                            INSERT IGNORE INTO illrequestattributes
                             (illrequest_id, type, value, readonly) VALUES
                             (?, ?, ?, ?)
                         |, undef, @bind);
