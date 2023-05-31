@@ -440,7 +440,7 @@ sub migrate {
         my $original_id = $original_request->illrequest_id;
         my @original_attributes = $original_request->illrequestattributes->search(
             { illrequest_id => $original_id }
-        );
+        )->as_list;
         my @attributes = keys %{$fields};
 
         # Look for an equivalent Rapid attribute 
