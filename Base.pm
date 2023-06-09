@@ -23,6 +23,7 @@ use warnings;
 
 use JSON qw( to_json from_json );
 use File::Basename qw( dirname );
+use C4::Installer;
 
 use Koha::Illbackends::RapidILL::Lib::API;
 use Koha::Libraries;
@@ -461,6 +462,8 @@ sub migrate {
             Koha::Illrequestattribute->new(
                 {
                     illrequest_id => $new_request->illrequest_id,
+                    # Check required for compatibility with installations before bug 33970
+                    column_exists( 'illrequestattributes', 'backend' ) ? (backend =>"RapidILL") : (),
                     type          => $type,
                     value         => $value,
                     readonly      => 0
@@ -659,6 +662,8 @@ sub create_illrequestattributes {
             if (!exists $existing_hash->{lc $att_type}) {
                 my $data = {
                     illrequest_id => $request->illrequest_id,
+                    # Check required for compatibility with installations before bug 33970
+                    column_exists( 'illrequestattributes', 'backend' ) ? (backend =>"RapidILL") : (),
                     type          => $att_type,
                     value         => $att_value,
                     readonly      => 0
@@ -770,6 +775,8 @@ sub create_request {
         if ($rapid_id && length $rapid_id > 0) {
             Koha::Illrequestattribute->new({
                 illrequest_id => $submission->illrequest_id,
+                # Check required for compatibility with installations before bug 33970
+                column_exists( 'illrequestattributes', 'backend' ) ? (backend =>"RapidILL") : (),
                 type          => 'RapidRequestId',
                 value         => $rapid_id
             })->store;
