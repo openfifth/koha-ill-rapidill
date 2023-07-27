@@ -28,7 +28,7 @@
         // We clone so we can extract the RapidID without affecting the displayed markup
         var containerClone = rapidIdContainer.clone();
 
-        $('.ill-view-panel .panel-body').first().append('<div id="rapid_status" class="rows"></div>');
+        $('.page-section').first().append('<div id="rapid_status" class="rows"></div>');
 
         containerClone.find('span.label').remove();
         var rapidId = containerClone.text().replace(/ |\n/g,'');
