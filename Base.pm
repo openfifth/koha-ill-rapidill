@@ -1185,7 +1185,7 @@ sub fieldmap {
             value_map => {
                 Book        => 'book',
                 Article     => 'article',
-                BookChapter => 'book'
+                BookChapter => 'chapter'
             },
             materials => [ "Article", "Book", "BookChapter" ]
         },
@@ -1288,7 +1288,7 @@ sub fieldmap {
             label     => {
                 Article     => "Journal title",
                 Book        => "Book title",
-                BookChapter => "Book title"
+                BookChapter => "Book chapter title / number"
             },
             ill       => "title",
             position  => 0,
