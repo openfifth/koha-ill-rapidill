@@ -136,7 +136,7 @@ sub uninstall() {
 
 =head3 new_backend
 
-Required method utilized by I<Koha::Illrequest> load_backend
+Required method utilized by I<Koha::ILL::Request> load_backend
 
 =cut
 
@@ -552,7 +552,7 @@ sub migrate {
     # Recieve a new request from another backend and suppliment it with
     # anything we require specifically for this backend.
     if ( !$stage || $stage eq 'immigrate' ) {
-        my $original_request = Koha::Illrequests->find( $other->{illrequest_id} );
+        my $original_request = Koha::ILL::Requests->find( $other->{illrequest_id} );
         my $new_request      = $params->{request};
         $new_request->borrowernumber( $original_request->borrowernumber );
         $new_request->branchcode( $original_request->branchcode );
@@ -584,7 +584,7 @@ sub migrate {
         }
         $new_attributes->{migrated_from} = $original_request->illrequest_id;
         while ( my ( $type, $value ) = each %{$new_attributes} ) {
-            Koha::Illrequestattribute->new(
+            Koha::ILL::Request::Attribute->new(
                 {
                     illrequest_id => $new_request->illrequest_id,
 
@@ -616,7 +616,7 @@ sub migrate {
         # Get the request we've migrated from
         my $new_request = $params->{request};
         my $from_id     = $new_request->illrequestattributes->find( { type => 'migrated_from' } )->value;
-        my $request     = Koha::Illrequests->find($from_id);
+        my $request     = Koha::ILL::Requests->find($from_id);
 
         my $return = {
             error          => 0,
@@ -803,7 +803,7 @@ sub create_illrequestattributes {
                     value    => $att_value,
                     readonly => 0
                 };
-                Koha::Illrequestattribute->new($data)->store;
+                Koha::ILL::Request::Attribute->new($data)->store;
             }
         }
     }
@@ -825,7 +825,7 @@ sub prep_submission_metadata {
 
     my $metadata_hashref = {};
 
-    if ( ref $metadata eq "Koha::Illrequestattributes" ) {
+    if ( ref $metadata eq "Koha::ILL::Request::Attributes" ) {
         while ( my $attr = $metadata->next ) {
             $metadata_hashref->{ $attr->type } = $attr->value;
         }
@@ -907,7 +907,7 @@ sub create_request {
     if ( $response->is_success && $body->{result}->{IsSuccessful} ) {
         my $rapid_id = $body->{result}->{RapidRequestId};
         if ( $rapid_id && length $rapid_id > 0 ) {
-            Koha::Illrequestattribute->new(
+            Koha::ILL::Request::Attribute->new(
                 {
                     illrequest_id => $submission->illrequest_id,
 
