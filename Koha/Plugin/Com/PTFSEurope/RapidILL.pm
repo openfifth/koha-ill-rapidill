@@ -21,7 +21,7 @@ use Modern::Perl;
 use strict;
 use warnings;
 
-use JSON qw( to_json from_json );
+use JSON           qw( to_json from_json );
 use File::Basename qw( dirname );
 use C4::Installer;
 
@@ -32,21 +32,19 @@ use Koha::Patrons;
 our $VERSION = "1.0.0";
 
 sub new {
-    my ($class, $params) = @_;
+    my ( $class, $params ) = @_;
 
     my $api = Koha::Illbackends::RapidILL::Lib::API->new($VERSION);
 
-    my $self = {
-        _api    => $api
-    };
+    my $self = { _api => $api };
 
-    $self->{_logger} = $params->{logger} if ( $params->{logger} ); 
-    $self->{templates} = { 
+    $self->{_logger}   = $params->{logger} if ( $params->{logger} );
+    $self->{templates} = {
         'RAPIDILL_REQUEST_FAILED'    => dirname(__FILE__) . '/intra-includes/log/rapidill_request_failed.tt',
         'RAPIDILL_REQUEST_SUCCEEDED' => dirname(__FILE__) . '/intra-includes/log/rapidill_request_succeeded.tt'
     };
 
-    bless($self, $class);
+    bless( $self, $class );
 
     return $self;
 }
@@ -58,7 +56,7 @@ Handle the "create" flow
 =cut
 
 sub create {
-    my ($self, $params) = @_;
+    my ( $self, $params ) = @_;
 
     my $other = $params->{other};
     my $stage = $other->{stage};
@@ -74,37 +72,35 @@ sub create {
         message        => "",
         error          => 0,
         field_map      => $self->fieldmap_sorted,
-        field_map_json => to_json($self->fieldmap())
+        field_map_json => to_json( $self->fieldmap() )
     };
 
     # Check for borrowernumber, but only if we're not receiving an OpenURL
-    if (
-        !$other->{openurl} &&
-        (!$other->{borrowernumber} && defined( $other->{cardnumber} ))
-    ) {
+    if ( !$other->{openurl}
+        && ( !$other->{borrowernumber} && defined( $other->{cardnumber} ) ) )
+    {
         $response->{cardnumber} = $other->{cardnumber};
 
         # 'cardnumber' here could also be a surname (or in the case of
         # search it will be a borrowernumber).
         my ( $brw_count, $brw ) =
-          _validate_borrower( $other->{'cardnumber'}, $stage );
+            _validate_borrower( $other->{'cardnumber'}, $stage );
 
         if ( $brw_count == 0 ) {
             $response->{status} = "invalid_borrower";
             $response->{value}  = $params;
-            $response->{stage} = "init";
+            $response->{stage}  = "init";
             $response->{error}  = 1;
             return $response;
-        }
-        elsif ( $brw_count > 1 ) {
+        } elsif ( $brw_count > 1 ) {
+
             # We must select a specific borrower out of our options.
             $params->{brw}     = $brw;
             $response->{value} = $params;
             $response->{stage} = "borrowers";
             $response->{error} = 0;
             return $response;
-        }
-        else {
+        } else {
             $other->{borrowernumber} = $brw->borrowernumber;
         }
 
@@ -117,7 +113,8 @@ sub create {
         # First thing we want to do, is check if we're receiving
         # an OpenURL and transform it into something we can
         # understand
-        if ($other->{openurl}) {
+        if ( $other->{openurl} ) {
+
             # We only want to transform once
             delete $other->{openurl};
             $params = _openurl_to_ill($params);
@@ -125,61 +122,64 @@ sub create {
 
         # Pass the map of form fields in forms that can be used by TT
         # and JS
-        $response->{field_map} = $self->fieldmap_sorted;
-        $response->{field_map_json} = to_json($self->fieldmap());
+        $response->{field_map}      = $self->fieldmap_sorted;
+        $response->{field_map_json} = to_json( $self->fieldmap() );
+
         # We just need to request the snippet that builds the Creation
         # interface.
         $response->{stage} = 'init';
         $response->{value} = $params;
         return $response;
     }
+
     # Validate form and perform search if valid
     elsif ( $stage eq 'validate' || $stage eq 'form' ) {
 
         if ( _fail( $other->{'branchcode'} ) ) {
+
             # Pass the map of form fields in forms that can be used by TT
             # and JS
-            $response->{field_map} = $self->fieldmap_sorted;
-            $response->{field_map_json} = to_json($self->fieldmap());
-            $response->{status} = "missing_branch";
-            $response->{error}  = 1;
-            $response->{stage}  = 'init';
-            $response->{value}  = $params;
+            $response->{field_map}      = $self->fieldmap_sorted;
+            $response->{field_map_json} = to_json( $self->fieldmap() );
+            $response->{status}         = "missing_branch";
+            $response->{error}          = 1;
+            $response->{stage}          = 'init';
+            $response->{value}          = $params;
             return $response;
-        }
-        elsif ( !Koha::Libraries->find( $other->{'branchcode'} ) ) {
+        } elsif ( !Koha::Libraries->find( $other->{'branchcode'} ) ) {
+
             # Pass the map of form fields in forms that can be used by TT
             # and JS
-            $response->{field_map} = $self->fieldmap_sorted;
-            $response->{field_map_json} = to_json($self->fieldmap());
-            $response->{status} = "invalid_branch";
-            $response->{error}  = 1;
-            $response->{stage}  = 'init';
-            $response->{value}  = $params;
+            $response->{field_map}      = $self->fieldmap_sorted;
+            $response->{field_map_json} = to_json( $self->fieldmap() );
+            $response->{status}         = "invalid_branch";
+            $response->{error}          = 1;
+            $response->{stage}          = 'init';
+            $response->{value}          = $params;
             return $response;
-        }
-        elsif ( !$other->{opac} && !$self->_validate_metadata($other) ) {
+        } elsif ( !$other->{opac} && !$self->_validate_metadata($other) ) {
+
             # We don't have sufficient metadata for request creation,
             # create a local submission for later attention
             $self->create_submission($params);
 
             $response->{stage} = "commit";
-            $response->{next} = "illview";
+            $response->{next}  = "illview";
             return $response;
-        }
-        else {
+        } else {
+
             # We can submit a request directly to RapidILL
             my $result = $self->submit_and_request($params);
 
-            if ($result->{success}) {
+            if ( $result->{success} ) {
                 $response->{stage}  = "commit";
-                $response->{next} = "illview";
+                $response->{next}   = "illview";
                 $response->{params} = $params;
             } else {
-                $response->{error}  = 1;
-                $response->{stage}  = 'commit';
-                $response->{next} = "illview";
-                $response->{params} = $params;
+                $response->{error}   = 1;
+                $response->{stage}   = 'commit';
+                $response->{next}    = "illview";
+                $response->{params}  = $params;
                 $response->{message} = $result->{message};
             }
 
@@ -195,18 +195,21 @@ sub create {
 =cut
 
 sub cancel {
-    my ($self, $params) = @_;
+    my ( $self, $params ) = @_;
 
     # Update the submission's status
     $params->{request}->status("CANCREQ")->store;
 
     # Find the submission's Rapid ID
-    my $rapid_request_id = $params->{request}->illrequestattributes->find({
-        illrequest_id => $params->{request}->illrequest_id,
-        type          => "RapidRequestId"
-    });
+    my $rapid_request_id = $params->{request}->illrequestattributes->find(
+        {
+            illrequest_id => $params->{request}->illrequest_id,
+            type          => "RapidRequestId"
+        }
+    );
 
-    if (!$rapid_request_id) {
+    if ( !$rapid_request_id ) {
+
         # No Rapid request, we don't need to do anything else
         return { success => 1 };
     }
@@ -218,11 +221,10 @@ sub cancel {
     );
 
     # If the cancellation was successful, note that in Staff notes
-    my $body = from_json($response->decoded_content);
-    if ($response->is_success && $body->{result}->{IsSuccessful}) {
-        $params->{request}->notesstaff(
-            join("\n\n", ($params->{request}->notesstaff || "", "Cancelled with RapidILL"))
-        )->store;
+    my $body = from_json( $response->decoded_content );
+    if ( $response->is_success && $body->{result}->{IsSuccessful} ) {
+        $params->{request}
+            ->notesstaff( join( "\n\n", ( $params->{request}->notesstaff || "", "Cancelled with RapidILL" ) ) )->store;
         return {
             cwd    => dirname(__FILE__),
             method => "cancel",
@@ -230,11 +232,19 @@ sub cancel {
             next   => "illview"
         };
     }
+
     # The call to RapidILL failed for some reason. Add the message we got back from the API
     # to the submission's Staff Notes
     $params->{request}->notesstaff(
-        join("\n\n", ($params->{request}->notesstaff || "", "RapidILL request cancellation failed:\n" . $body->{result}->{VerificationNote} || ""))
+        join(
+            "\n\n",
+            (
+                $params->{request}->notesstaff || "",
+                "RapidILL request cancellation failed:\n" . $body->{result}->{VerificationNote} || ""
+            )
+        )
     )->store;
+
     # Return the message
     return {
         cwd     => dirname(__FILE__),
@@ -252,10 +262,10 @@ sub cancel {
 =cut
 
 sub illview {
-    my ($self, $params) = @_;
+    my ( $self, $params ) = @_;
 
     return {
-        field_map_json => to_json(fieldmap()),
+        field_map_json => to_json( fieldmap() ),
         method         => "illview"
     };
 }
@@ -267,7 +277,7 @@ Edit an item's metadata
 =cut
 
 sub edititem {
-    my ($self, $params) = @_;
+    my ( $self, $params ) = @_;
 
     # Don't allow editing of requested submissions
     return {
@@ -279,21 +289,22 @@ sub edititem {
     my $stage = $other->{stage};
     if ( !$stage || $stage eq 'init' ) {
         my $attrs = $params->{request}->illrequestattributes->unblessed;
-        foreach my $attr(@{$attrs}) {
-            $other->{$attr->{type}} = $attr->{value};
+        foreach my $attr ( @{$attrs} ) {
+            $other->{ $attr->{type} } = $attr->{value};
         }
         return {
-            cwd     => dirname(__FILE__),
-            error   => 0,
-            status  => '',
-            message => '',
-            method  => 'edititem',
-            stage   => 'form',
-            value   => $params,
-            field_map => $self->fieldmap_sorted,
-            field_map_json => to_json($self->fieldmap)
+            cwd            => dirname(__FILE__),
+            error          => 0,
+            status         => '',
+            message        => '',
+            method         => 'edititem',
+            stage          => 'form',
+            value          => $params,
+            field_map      => $self->fieldmap_sorted,
+            field_map_json => to_json( $self->fieldmap )
         };
     } elsif ( $stage eq 'form' ) {
+
         # Update submission
         my $submission = $params->{request};
         $submission->updated( DateTime->now );
@@ -302,18 +313,18 @@ sub edititem {
         # We may be receiving a submitted form due to the user having
         # changed request material type, so we just need to go straight
         # back to the form, the type has been changed in the params
-        if (defined $other->{change_type}) {
+        if ( defined $other->{change_type} ) {
             delete $other->{change_type};
             return {
-                cwd     => dirname(__FILE__),
-                error   => 0,
-                status  => '',
-                message => '',
-                method  => 'edititem',
-                stage   => 'form',
-                value   => $params,
-                field_map => $self->fieldmap_sorted,
-                field_map_json => to_json($self->fieldmap)
+                cwd            => dirname(__FILE__),
+                error          => 0,
+                status         => '',
+                message        => '',
+                method         => 'edititem',
+                stage          => 'form',
+                value          => $params,
+                field_map      => $self->fieldmap_sorted,
+                field_map_json => to_json( $self->fieldmap )
             };
         }
 
@@ -324,51 +335,57 @@ sub edititem {
         my $dbh    = C4::Context->dbh;
         my $schema = Koha::Database->new->schema;
         $schema->txn_do(
-            sub{
+            sub {
                 # Delete all existing attributes for this request
-                $dbh->do( q|
+                $dbh->do(
+                    q|
                     DELETE FROM illrequestattributes WHERE illrequest_id=?
-                |, undef, $submission->id);
+                |, undef, $submission->id
+                );
+
                 # Insert all current attributes for this request
-                my $type = $other->{RapidRequestType};
+                my $type   = $other->{RapidRequestType};
                 my $fields = $self->fieldmap;
 
                 # First insert our RapidILL fields
-                foreach my $field(%{$other}) {
+                foreach my $field ( %{$other} ) {
                     my $value = $other->{$field};
-                    if (
-                        grep( /^$type$/, @{$fields->{$field}->{materials}}) &&
-                        $other->{$field} &&
-                        length $other->{$field} > 0
-                    ) {
-                        my @bind = ($submission->id, $field, $value, 0);
-                        $dbh->do ( q|
+                    if (   grep( /^$type$/, @{ $fields->{$field}->{materials} } )
+                        && $other->{$field}
+                        && length $other->{$field} > 0 )
+                    {
+                        my @bind = ( $submission->id, $field, $value, 0 );
+                        $dbh->do(
+                            q|
                             INSERT IGNORE INTO illrequestattributes
                             (illrequest_id, type, value, readonly) VALUES
                             (?, ?, ?, ?)
-                        |, undef, @bind);
+                        |, undef, @bind
+                        );
                     }
                 }
 
                 # Now insert our core equivalents
-                foreach my $field(%{$other}) {
+                foreach my $field ( %{$other} ) {
                     my $value = $other->{$field};
-                    if (
-                        grep( /^$type$/, @{$fields->{$field}->{materials}}) &&
-                        $other->{$field} &&
-                        $fields->{$field}->{ill} &&
-                        length $other->{$field} > 0
-                    ) {
+                    if (   grep( /^$type$/, @{ $fields->{$field}->{materials} } )
+                        && $other->{$field}
+                        && $fields->{$field}->{ill}
+                        && length $other->{$field} > 0 )
+                    {
                         # The value might need mapping to a core equivalent
-                        $value = ($fields->{$field}->{value_map}) ?
-                            $fields->{$field}->{value_map}->{$value} :
-                            $value;
-                        my @bind = ($submission->id, $fields->{$field}->{ill}, $value, 0);
-                        $dbh->do ( q|
+                        $value =
+                            ( $fields->{$field}->{value_map} )
+                            ? $fields->{$field}->{value_map}->{$value}
+                            : $value;
+                        my @bind = ( $submission->id, $fields->{$field}->{ill}, $value, 0 );
+                        $dbh->do(
+                            q|
                             INSERT IGNORE INTO illrequestattributes
                             (illrequest_id, type, value, readonly) VALUES
                             (?, ?, ?, ?)
-                        |, undef, @bind);
+                        |, undef, @bind
+                        );
                     }
                 }
             }
@@ -385,7 +402,7 @@ sub edititem {
             next           => 'illview',
             value          => $params,
             field_map      => $self->fieldmap_sorted,
-            field_map_json => to_json($self->fieldmap)
+            field_map_json => to_json( $self->fieldmap )
         };
     }
 }
@@ -408,27 +425,26 @@ sub migrate {
     # We may be receiving a submitted form due to the user having
     # changed request material type, so we just need to go straight
     # back to the form, the type has been changed in the params
-    if (defined $other->{change_type}) {
+    if ( defined $other->{change_type} ) {
         delete $other->{change_type};
         return {
-            cwd     => dirname(__FILE__),
-            error   => 0,
-            status  => '',
-            message => '',
-            method  => 'create',
-            stage   => 'form',
-            value   => $params,
-            field_map => $self->fieldmap_sorted,
-            field_map_json => to_json($self->fieldmap)
+            cwd            => dirname(__FILE__),
+            error          => 0,
+            status         => '',
+            message        => '',
+            method         => 'create',
+            stage          => 'form',
+            value          => $params,
+            field_map      => $self->fieldmap_sorted,
+            field_map_json => to_json( $self->fieldmap )
         };
     }
 
     # Recieve a new request from another backend and suppliment it with
     # anything we require specifically for this backend.
     if ( !$stage || $stage eq 'immigrate' ) {
-        my $original_request =
-          Koha::Illrequests->find( $other->{illrequest_id} );
-        my $new_request = $params->{request};
+        my $original_request = Koha::Illrequests->find( $other->{illrequest_id} );
+        my $new_request      = $params->{request};
         $new_request->borrowernumber( $original_request->borrowernumber );
         $new_request->branchcode( $original_request->branchcode );
         $new_request->status('NEW');
@@ -439,21 +455,21 @@ sub migrate {
 
         # Map from Koha's core fields to our metadata fields
         my $original_id = $original_request->illrequest_id;
-        my @original_attributes = $original_request->illrequestattributes->search(
-            { illrequest_id => $original_id }
-        )->as_list;
+        my @original_attributes =
+            $original_request->illrequestattributes->search( { illrequest_id => $original_id } )->as_list;
         my @attributes = keys %{$fields};
 
-        # Look for an equivalent Rapid attribute 
+        # Look for an equivalent Rapid attribute
         # for every bit of metadata we receive and, if it exists, map it to the
         # new property
         my $new_attributes = {};
-        foreach my $old(@original_attributes) {
-            my $rapid = $self->find_rapid_property($old->type);
+        foreach my $old (@original_attributes) {
+            my $rapid = $self->find_rapid_property( $old->type );
             if ($rapid) {
+
                 # The value may also need mapping
-                my $rapid_value = $self->find_rapid_value($rapid, $old->value);                
-                my $value = $rapid_value ? $rapid_value : $old->value;
+                my $rapid_value = $self->find_rapid_value( $rapid, $old->value );
+                my $value       = $rapid_value ? $rapid_value : $old->value;
                 $new_attributes->{$rapid} = $value;
             }
         }
@@ -462,55 +478,56 @@ sub migrate {
             Koha::Illrequestattribute->new(
                 {
                     illrequest_id => $new_request->illrequest_id,
+
                     # Check required for compatibility with installations before bug 33970
-                    column_exists( 'illrequestattributes', 'backend' ) ? (backend =>"RapidILL") : (),
-                    type          => $type,
-                    value         => $value,
-                    readonly      => 0
+                    column_exists( 'illrequestattributes', 'backend' ) ? ( backend => "RapidILL" ) : (),
+                    type     => $type,
+                    value    => $value,
+                    readonly => 0
                 }
             )->store;
         }
 
         return {
-            error   => 0,
-            status  => '',
-            message => '',
-            method  => 'migrate',
-            stage   => 'commit',
-            next    => 'emigrate',
-            value   => $params,
-            field_map => $self->fieldmap_sorted,
-            field_map_json => to_json($self->fieldmap)
+            error          => 0,
+            status         => '',
+            message        => '',
+            method         => 'migrate',
+            stage          => 'commit',
+            next           => 'emigrate',
+            value          => $params,
+            field_map      => $self->fieldmap_sorted,
+            field_map_json => to_json( $self->fieldmap )
         };
-    
-    } elsif ($stage eq 'emigrate') {
+
+    } elsif ( $stage eq 'emigrate' ) {
+
         # We need to cancel any outstanding request with Rapid and then
         # update our local submission
         # Get the request we've migrated from
         my $new_request = $params->{request};
-        my $from_id = $new_request->illrequestattributes->find(
-            { type => 'migrated_from' } )->value;
-        my $request = Koha::Illrequests->find($from_id);
+        my $from_id     = $new_request->illrequestattributes->find( { type => 'migrated_from' } )->value;
+        my $request     = Koha::Illrequests->find($from_id);
 
         my $return = {
-            error   => 0,
-            status  => '',
-            message => '',
-            method  => 'migrate',
-            stage   => 'commit',
-            next    => 'illview',
-            value   => $params,
-            field_map => $self->fieldmap_sorted,
-            field_map_json => to_json($self->fieldmap)
+            error          => 0,
+            status         => '',
+            message        => '',
+            method         => 'migrate',
+            stage          => 'commit',
+            next           => 'illview',
+            value          => $params,
+            field_map      => $self->fieldmap_sorted,
+            field_map_json => to_json( $self->fieldmap )
         };
 
         # Cancel a Rapid request if necessary
-        my $cancellation = $self->cancel({ request => $request });
+        my $cancellation = $self->cancel( { request => $request } );
 
         # If there was a problem cancelling with Rapid, we need to pass
         # that on
-        if ($cancellation->{error}) {
-            $return->{error} = $cancellation->{error};
+        if ( $cancellation->{error} ) {
+            $return->{error}   = $cancellation->{error};
             $return->{message} = $cancellation->{message};
         }
 
@@ -526,15 +543,15 @@ this material type
 =cut
 
 sub _validate_metadata {
-    my ($self, $metadata) = @_;
+    my ( $self, $metadata ) = @_;
     my $fields = $self->fieldmap();
-    
-    my $type = $metadata->{RapidRequestType};
+
+    my $type   = $metadata->{RapidRequestType};
     my $groups = $self->_build_validation_groups($type);
 
-    foreach my $group(keys %{$groups}) {
+    foreach my $group ( keys %{$groups} ) {
         my $group_fields = $groups->{$group};
-        if (!_is_group_valid($metadata, $group_fields)) {
+        if ( !_is_group_valid( $metadata, $group_fields ) ) {
             return 0;
         }
     }
@@ -550,18 +567,18 @@ to more easily validate group population
 =cut
 
 sub _build_validation_groups {
-    my ($self, $type) = @_;
+    my ( $self, $type ) = @_;
     my $groups = {};
     my $fields = $self->fieldmap();
-    foreach my $field(keys %{$fields}) {
-        if ($fields->{$field}->{required}) {
+    foreach my $field ( keys %{$fields} ) {
+        if ( $fields->{$field}->{required} ) {
             my $req = $fields->{$field}->{required};
-            foreach my $material(keys %{$req}) {
-                if ($material eq $type) {
-                    if (!exists $groups->{$req->{$material}->{group}}) {
-                        $groups->{$req->{$material}->{group}} = [ $field ];
+            foreach my $material ( keys %{$req} ) {
+                if ( $material eq $type ) {
+                    if ( !exists $groups->{ $req->{$material}->{group} } ) {
+                        $groups->{ $req->{$material}->{group} } = [$field];
                     } else {
-                        push (@{$groups->{$req->{$material}->{group}}}, $field);
+                        push( @{ $groups->{ $req->{$material}->{group} } }, $field );
                     }
                 }
             }
@@ -579,11 +596,11 @@ at least one of them been populated?
 =cut
 
 sub _is_group_valid {
-    my ($metadata, $fields) = @_;
+    my ( $metadata, $fields ) = @_;
 
     my $valid = 0;
-    foreach my $field(@{$fields}) {
-        if  (length $metadata->{$field}) {
+    foreach my $field ( @{$fields} ) {
+        if ( length $metadata->{$field} ) {
             $valid++;
         }
     }
@@ -598,24 +615,25 @@ Create a local submission, for later RapidILL request creation
 =cut
 
 sub create_submission {
-    my ($self, $params) = @_;
+    my ( $self, $params ) = @_;
 
     my $patron = Koha::Patrons->find( $params->{other}->{borrowernumber} );
 
     my $request = $params->{request};
-    $request->borrowernumber($patron->borrowernumber);
-    $request->branchcode($params->{other}->{branchcode});
+    $request->borrowernumber( $patron->borrowernumber );
+    $request->branchcode( $params->{other}->{branchcode} );
     $request->status('NEW');
-    $request->backend($self->name);
-    $request->placed(DateTime->now);
-    $request->updated(DateTime->now);
+    $request->backend( $self->name );
+    $request->placed( DateTime->now );
+    $request->updated( DateTime->now );
 
     $request->store;
 
     # Store the request attributes
-    $self->create_illrequestattributes($request, $params->{other});
+    $self->create_illrequestattributes( $request, $params->{other} );
+
     # Now store the core equivalents
-    $self->create_illrequestattributes($request, $params->{other}, 1);
+    $self->create_illrequestattributes( $request, $params->{other}, 1 );
 
     return $request;
 }
@@ -627,7 +645,7 @@ Store metadata for a given request for our Rapid fields
 =cut
 
 sub create_illrequestattributes {
-    my ($self, $request, $metadata, $core) = @_;
+    my ( $self, $request, $metadata, $core ) = @_;
 
     # Get the canonical list of metadata fields
     my $fields = $self->fieldmap;
@@ -637,36 +655,44 @@ sub create_illrequestattributes {
     # Get any existing illrequestattributes for this request,
     # so we can avoid trying to create duplicates
     my $existing_attrs = $request->illrequestattributes->unblessed;
-    my $existing_hash = {};
-    foreach my $a(@{$existing_attrs}) {
-        $existing_hash->{lc $a->{type}} = $a->{value};
+    my $existing_hash  = {};
+    foreach my $a ( @{$existing_attrs} ) {
+        $existing_hash->{ lc $a->{type} } = $a->{value};
     }
+
     # Iterate our list of fields
-    foreach my $field (keys %{$fields}) {
+    foreach my $field ( keys %{$fields} ) {
+
         # If this field is used in the selected material type
         if (
-            grep( /^$type$/, @{$fields->{$field}->{materials}}) &&
+            grep( /^$type$/, @{ $fields->{$field}->{materials} } )
+            &&
+
             # If we're working with core metadata, check if this field
             # has a core equivalent
-            (($core && $fields->{$field}->{ill}) || !$core) &&
-            $metadata->{$field} &&
-            length $metadata->{$field} > 0
-        ) {
+            ( ( $core && $fields->{$field}->{ill} ) || !$core )
+            && $metadata->{$field}
+            && length $metadata->{$field} > 0
+            )
+        {
             my $att_type = $core ? $fields->{$field}->{ill} : $field;
+
             # We might need to map the attribute value to our core equivalent
-            my $att_value = ($core && $fields->{$field}->{value_map}) ?
-                $fields->{$field}->{value_map}->{$metadata->{$field}} :
-                $metadata->{$field};
+            my $att_value =
+                ( $core && $fields->{$field}->{value_map} )
+                ? $fields->{$field}->{value_map}->{ $metadata->{$field} }
+                : $metadata->{$field};
 
             # If it doesn't already exist for this request
-            if (!exists $existing_hash->{lc $att_type}) {
+            if ( !exists $existing_hash->{ lc $att_type } ) {
                 my $data = {
                     illrequest_id => $request->illrequest_id,
+
                     # Check required for compatibility with installations before bug 33970
-                    column_exists( 'illrequestattributes', 'backend' ) ? (backend =>"RapidILL") : (),
-                    type          => $att_type,
-                    value         => $att_value,
-                    readonly      => 0
+                    column_exists( 'illrequestattributes', 'backend' ) ? ( backend => "RapidILL" ) : (),
+                    type     => $att_type,
+                    value    => $att_value,
+                    readonly => 0
                 };
                 Koha::Illrequestattribute->new($data)->store;
             }
@@ -684,15 +710,15 @@ is appropriate for this material type
 =cut
 
 sub prep_submission_metadata {
-    my ($self, $metadata, $return) = @_;
+    my ( $self, $metadata, $return ) = @_;
 
     $return = $return //= {};
 
     my $metadata_hashref = {};
 
-    if (ref $metadata eq "Koha::Illrequestattributes") {
-        while (my $attr = $metadata->next) {
-            $metadata_hashref->{$attr->type} = $attr->value;
+    if ( ref $metadata eq "Koha::Illrequestattributes" ) {
+        while ( my $attr = $metadata->next ) {
+            $metadata_hashref->{ $attr->type } = $attr->value;
         }
     } else {
         $metadata_hashref = $metadata;
@@ -704,17 +730,18 @@ sub prep_submission_metadata {
     my $type = $metadata_hashref->{RapidRequestType};
 
     # Iterate our list of fields
-    foreach my $field(keys %{$fields}) {
+    foreach my $field ( keys %{$fields} ) {
+
         # If this field is used in the selected material type and is populated
-        if (
-            grep( /^$type$/, @{$fields->{$field}->{materials}}) &&
-            $metadata_hashref->{$field} &&
-            length $metadata_hashref->{$field} > 0
-        ) {
+        if (   grep( /^$type$/, @{ $fields->{$field}->{materials} } )
+            && $metadata_hashref->{$field}
+            && length $metadata_hashref->{$field} > 0 )
+        {
             # "array" fields need splitting by space and forming into an array
-            if ($fields->{$field}->{type} eq 'array') {
-                $metadata_hashref->{$field}=~s/  / /g;
-                my @arr = split(/ /, $metadata_hashref->{$field});
+            if ( $fields->{$field}->{type} eq 'array' ) {
+                $metadata_hashref->{$field} =~ s/  / /g;
+                my @arr = split( / /, $metadata_hashref->{$field} );
+
                 # Needs to be in the form
                 # SuggestedIsbns => { string => [ "1234567890", "0987654321" ] }
                 $return->{$field} = { string => \@arr };
@@ -735,7 +762,7 @@ a RapidILL request
 =cut
 
 sub submit_and_request {
-    my ($self, $params) = @_;
+    my ( $self, $params ) = @_;
 
     # First we create a submission
     my $submission = $self->create_submission($params);
@@ -752,12 +779,10 @@ in order to create a request
 =cut
 
 sub create_request {
-    my ($self, $submission) = @_;
+    my ( $self, $submission ) = @_;
 
     # Add the ID of our newly created submission
-    my $metadata = {
-        XRefRequestId => $submission->illrequest_id
-    };
+    my $metadata = { XRefRequestId => $submission->illrequest_id };
 
     $metadata = $self->prep_submission_metadata(
         $submission->illrequestattributes,
@@ -769,43 +794,56 @@ sub create_request {
 
     # If the call to RapidILL was successful,
     # add the Rapid request ID to our submission's metadata
-    my $body = from_json($response->decoded_content);
-    if ($response->is_success && $body->{result}->{IsSuccessful}) {
+    my $body = from_json( $response->decoded_content );
+    if ( $response->is_success && $body->{result}->{IsSuccessful} ) {
         my $rapid_id = $body->{result}->{RapidRequestId};
-        if ($rapid_id && length $rapid_id > 0) {
-            Koha::Illrequestattribute->new({
-                illrequest_id => $submission->illrequest_id,
-                # Check required for compatibility with installations before bug 33970
-                column_exists( 'illrequestattributes', 'backend' ) ? (backend =>"RapidILL") : (),
-                type          => 'RapidRequestId',
-                value         => $rapid_id
-            })->store;
+        if ( $rapid_id && length $rapid_id > 0 ) {
+            Koha::Illrequestattribute->new(
+                {
+                    illrequest_id => $submission->illrequest_id,
+
+                    # Check required for compatibility with installations before bug 33970
+                    column_exists( 'illrequestattributes', 'backend' ) ? ( backend => "RapidILL" ) : (),
+                    type  => 'RapidRequestId',
+                    value => $rapid_id
+                }
+            )->store;
         }
+
         # Add the RapidILL ID to the orderid field
         $submission->orderid($rapid_id);
+
         # Update the submission status
         $submission->status('REQ')->store;
 
         # Log the outcome
-        $self->log_request_outcome({
-            outcome => 'RAPIDILL_REQUEST_SUCCEEDED',
-            request => $submission
-        });
+        $self->log_request_outcome(
+            {
+                outcome => 'RAPIDILL_REQUEST_SUCCEEDED',
+                request => $submission
+            }
+        );
 
         return { success => 1 };
     }
+
     # The call to RapidILL failed for some reason. Add the message we got back from the API
     # to the submission's Staff Notes
     $submission->notesstaff(
-        join("\n\n", ($submission->notesstaff || "", "RapidILL request failed:\n" . $body->{result}->{VerificationNote} || ""))
+        join(
+            "\n\n",
+            ( $submission->notesstaff || "", "RapidILL request failed:\n" . $body->{result}->{VerificationNote} || "" )
+        )
     )->store;
 
     # Log the outcome
-    $self->log_request_outcome({
-        outcome => 'RAPIDILL_REQUEST_FAILED',
-        request => $submission,
-        message => $body->{result}->{VerificationNote}
-    });
+    $self->log_request_outcome(
+        {
+            outcome => 'RAPIDILL_REQUEST_FAILED',
+            request => $submission,
+            message => $body->{result}->{VerificationNote}
+        }
+    );
 
     # Return the message
     return {
@@ -824,9 +862,9 @@ the status graph
 =cut
 
 sub confirm {
-    my ($self, $params) = @_;
+    my ( $self, $params ) = @_;
 
-    my $return = $self->create_request($params->{request});
+    my $return = $self->create_request( $params->{request} );
 
     my $return_value = {
         cwd     => dirname(__FILE__),
@@ -850,9 +888,10 @@ Log the outcome of a request to the RapidILL API
 =cut
 
 sub log_request_outcome {
-    my ($self, $params) = @_;
+    my ( $self, $params ) = @_;
 
     if ( $self->{_logger} ) {
+
         # TODO: This is a transitionary measure, we have removed set_data
         # in Bug 20750, so calls to it won't work. But since 20750 is
         # only in 19.05+, they only won't work in earlier
@@ -861,12 +900,14 @@ sub log_request_outcome {
             modulename   => 'ILL',
             actionname   => $params->{outcome},
             objectnumber => $params->{request}->id,
-            infos        => to_json({
-                log_origin => $self->name,
-                response  => $params->{message}
-            })
+            infos        => to_json(
+                {
+                    log_origin => $self->name,
+                    response   => $params->{message}
+                }
+            )
         };
-        if ($self->{_logger}->can('set_data')) {
+        if ( $self->{_logger}->can('set_data') ) {
             $self->{_logger}->set_data($payload);
         } else {
             $self->{_logger}->log_something($payload);
@@ -898,31 +939,32 @@ illrequestattributes store
 sub metadata {
     my ( $self, $request ) = @_;
 
-    my $attrs = $request->illrequestattributes;
+    my $attrs  = $request->illrequestattributes;
     my $fields = $self->fieldmap;
 
-    my $type = $attrs->find({ type => "RapidRequestType" })->value;
+    my $type = $attrs->find( { type => "RapidRequestType" } )->value;
 
     my $metadata = {};
 
-    while (my $attr = $attrs->next) {
-        if ($fields->{$attr->type}) {
-            my $label = ref $fields->{$attr->type}->{label} eq "HASH" ?
-                $fields->{$attr->type}->{label}->{$type} :
-                $fields->{$attr->type}->{label};
+    while ( my $attr = $attrs->next ) {
+        if ( $fields->{ $attr->type } ) {
+            my $label =
+                ref $fields->{ $attr->type }->{label} eq "HASH"
+                ? $fields->{ $attr->type }->{label}->{$type}
+                : $fields->{ $attr->type }->{label};
             $metadata->{$label} = $attr->value;
         }
     }
 
     # OPAC list view uses completely different property names for author
     # and title. Cater for that.
-    if ($type eq "Article" || $type eq "BookChapter") {
-        my $title_key = $fields->{ArticleTitle}->{label}->{$type};
+    if ( $type eq "Article" || $type eq "BookChapter" ) {
+        my $title_key  = $fields->{ArticleTitle}->{label}->{$type};
         my $author_key = $fields->{ArticleAuthor}->{label}->{$type};
-        $metadata->{Title} = $metadata->{$title_key} if $metadata->{$title_key};
+        $metadata->{Title}  = $metadata->{$title_key}  if $metadata->{$title_key};
         $metadata->{Author} = $metadata->{$author_key} if $metadata->{$author_key};
-    } elsif ($type eq "Book") {
-        $metadata->{Title} = $metadata->{'Book title'} if $metadata->{'Book title'};
+    } elsif ( $type eq "Book" ) {
+        $metadata->{Title}  = $metadata->{'Book title'}  if $metadata->{'Book title'};
         $metadata->{Author} = $metadata->{'Book author'} if $metadata->{'Book author'};
     }
 
@@ -942,8 +984,10 @@ sub capabilities {
     my ( $self, $name ) = @_;
     my ($query) = @_;
     my $capabilities = {
+
         # View and manage a request
         illview => sub { illview(@_); },
+
         # Migrate
         migrate => sub { $self->migrate(@_); },
 
@@ -965,10 +1009,9 @@ Given the parameters we've been passed, should we create the request
 =cut
 
 sub _can_create_request {
-     my ($params) = @_;
-     return ( defined $params->{'stage'} ) ? 1 : 0;
+    my ($params) = @_;
+    return ( defined $params->{'stage'} ) ? 1 : 0;
 }
-
 
 =head3 status_graph
 
@@ -979,7 +1022,7 @@ This backend provides no additional actions on top of the core_status_graph
 sub status_graph {
     return {
         EDITITEM => {
-            prev_actions   => [ 'NEW' ],
+            prev_actions   => ['NEW'],
             id             => 'EDITITEM',
             name           => 'Edited item metadata',
             ui_method_name => 'Edit item metadata',
@@ -987,6 +1030,7 @@ sub status_graph {
             next_actions   => [],
             ui_method_icon => 'fa-edit',
         },
+
         # Override REQ so we can rename the button
         # Talk about a sledgehammer to crack a nut
         REQ => {
@@ -999,15 +1043,14 @@ sub status_graph {
             ui_method_icon => 'fa-check',
         },
         MIG => {
-            prev_actions =>
-              [ 'NEW', 'REQ', 'GENREQ', 'REQREV', 'QUEUED', 'CANCREQ', ],
+            prev_actions   => [ 'NEW', 'REQ', 'GENREQ', 'REQREV', 'QUEUED', 'CANCREQ', ],
             id             => 'MIG',
             name           => 'Switched provider',
             ui_method_name => 'Switch provider',
             method         => 'migrate',
             next_actions   => [],
             ui_method_icon => 'fa-search',
-        },        
+        },
     };
 }
 
@@ -1035,10 +1078,10 @@ name. Or undef if there is not one
 =cut
 
 sub find_rapid_property {
-    my ($self, $core) = @_;
+    my ( $self, $core ) = @_;
     my $fields = $self->fieldmap;
-    foreach my $field(keys %{$fields}) {
-        if ($fields->{$field}->{ill} && $fields->{$field}->{ill} eq $core) {
+    foreach my $field ( keys %{$fields} ) {
+        if ( $fields->{$field}->{ill} && $fields->{$field}->{ill} eq $core ) {
             return $field;
         }
     }
@@ -1052,12 +1095,12 @@ value. Or undef if there is not one
 =cut
 
 sub find_rapid_value {
-    my ($self, $rapid_prop, $core_val) = @_;
+    my ( $self, $rapid_prop, $core_val ) = @_;
     my $fields = $self->fieldmap;
-    if ($fields->{$rapid_prop}->{value_map}) {
+    if ( $fields->{$rapid_prop}->{value_map} ) {
         my $map = $fields->{$rapid_prop}->{value_map};
-        while (my($key, $value) = each%{$map}) {
-            if ($map->{$key} eq $core_val) {
+        while ( my ( $key, $value ) = each %{$map} ) {
+            if ( $map->{$key} eq $core_val ) {
                 return $key;
             }
         }
@@ -1108,23 +1151,28 @@ sub _openurl_to_ill {
     };
 
     my $return = {};
+
     # First make sure our keys are correct
-    foreach my $meta_key(keys %{$params->{other}}) {
+    foreach my $meta_key ( keys %{ $params->{other} } ) {
+
         # If we are transforming this property...
-        if (exists $transform_metadata->{$meta_key}) {
+        if ( exists $transform_metadata->{$meta_key} ) {
+
             # ...do it if we have valid mapping
-            if (length $transform_metadata->{$meta_key} > 0) {
-                $return->{$transform_metadata->{$meta_key}} = $params->{other}->{$meta_key};
+            if ( length $transform_metadata->{$meta_key} > 0 ) {
+                $return->{ $transform_metadata->{$meta_key} } = $params->{other}->{$meta_key};
             }
         } else {
+
             # Otherwise, pass it through untransformed
             $return->{$meta_key} = $params->{other}->{$meta_key};
         }
     }
+
     # Now check our values are correct
-    foreach my $val_key(keys %{$return}) {
+    foreach my $val_key ( keys %{$return} ) {
         my $value = $return->{$val_key};
-        if (exists $transform_value->{$val_key} && exists $transform_value->{$val_key}->{$value}) {
+        if ( exists $transform_value->{$val_key} && exists $transform_value->{$val_key}->{$value} ) {
             $return->{$val_key} = $transform_value->{$val_key}->{$value};
         }
     }
@@ -1147,9 +1195,7 @@ sub fieldmap_sorted {
 
     my @out = ();
 
-    foreach my $key (sort {
-        $fields->{$a}->{position} <=> $fields->{$b}->{position}
-    } keys %{$fields}) {
+    foreach my $key ( sort { $fields->{$a}->{position} <=> $fields->{$b}->{position} } keys %{$fields} ) {
         my $el = $fields->{$key};
         $el->{key} = $key;
         push @out, $el;
@@ -1201,12 +1247,8 @@ sub fieldmap {
             ill       => "issn",
             position  => 11,
             help      => "Multiple ISSNs must be separated by a space",
-            materials => [ "Article" ],
-            required  => {
-                "Article" => {
-                    group   => "ARTICLE_IDENTIFIER"
-                }
-            }
+            materials => ["Article"],
+            required  => { "Article" => { group => "ARTICLE_IDENTIFIER" } }
         },
         OclcNumber => {
             type      => "string",
@@ -1214,12 +1256,8 @@ sub fieldmap {
             position  => 13,
             materials => [ "Article", "Book", "BookChapter" ],
             required  => {
-                "Article" => {
-                    group   => "ARTICLE_IDENTIFIER"
-                },
-                "Book" => {
-                    group   => "BOOK_IDENTIFIER"
-                }
+                "Article" => { group => "ARTICLE_IDENTIFIER" },
+                "Book"    => { group => "BOOK_IDENTIFIER" }
             }
         },
         SuggestedIsbns => {
@@ -1229,11 +1267,7 @@ sub fieldmap {
             position  => 10,
             help      => "Multiple ISBNs must be separated by a space",
             materials => [ "Book", "BookChapter" ],
-            required  => {
-                "Book" => {
-                    group   => "BOOK_IDENTIFIER"
-                }
-            }
+            required  => { "Book" => { group => "BOOK_IDENTIFIER" } }
         },
         SuggestedLccns => {
             type      => "array",
@@ -1243,8 +1277,8 @@ sub fieldmap {
             materials => [ "Book", "BookChapter" ]
         },
         ArticleTitle => {
-            type      => "string",
-            label     => {
+            type  => "string",
+            label => {
                 Article     => "Article title",
                 BookChapter => "Book chapter title / number"
             },
@@ -1252,17 +1286,13 @@ sub fieldmap {
             position  => 1,
             materials => [ "Article", "BookChapter" ],
             required  => {
-                "Article" => {
-                    group   => "ARTICLE_ARTICLE_TITLE_PAGES"
-                },
-                "BookChapter" => {
-                    group   => "CHAPTER_ARTICLE_TITLE_PAGES"
-                }
+                "Article"     => { group => "ARTICLE_ARTICLE_TITLE_PAGES" },
+                "BookChapter" => { group => "CHAPTER_ARTICLE_TITLE_PAGES" }
             }
         },
         ArticleAuthor => {
-            type      => "string",
-            label     => {
+            type  => "string",
+            label => {
                 Article     => "Article author",
                 Book        => "Book author",
                 BookChapter => "Book author"
@@ -1272,8 +1302,8 @@ sub fieldmap {
             materials => [ "Article", "Book", "BookChapter" ]
         },
         ArticlePages => {
-            type      => "string",
-            label     => {
+            type  => "string",
+            label => {
                 Article     => "Pages in journal",
                 BookChapter => "Pages in book extract"
             },
@@ -1281,17 +1311,13 @@ sub fieldmap {
             position  => 9,
             materials => [ "Article", "BookChapter" ],
             required  => {
-                "Article" => {
-                    group   => "ARTICLE_ARTICLE_TITLE_PAGES"
-                },
-                "BookChapter" => {
-                    group   => "CHAPTER_ARTICLE_TITLE_PAGES"
-                }
+                "Article"     => { group => "ARTICLE_ARTICLE_TITLE_PAGES" },
+                "BookChapter" => { group => "CHAPTER_ARTICLE_TITLE_PAGES" }
             }
         },
         PatronJournalTitle => {
-            type      => "string",
-            label     => {
+            type  => "string",
+            label => {
                 Article     => "Journal title",
                 Book        => "Book title",
                 BookChapter => "Book chapter title / number"
@@ -1306,11 +1332,7 @@ sub fieldmap {
             ill       => "year",
             position  => 8,
             materials => [ "Article", "Book", "BookChapter" ],
-            required  => {
-                "Article" => {
-                    group   => "ARTICLE_YEAR_VOL"
-                }
-            }
+            required  => { "Article" => { group => "ARTICLE_YEAR_VOL" } }
         },
         JournalVol => {
             type      => "string",
@@ -1318,25 +1340,21 @@ sub fieldmap {
             ill       => "volume",
             position  => 4,
             materials => [ "Article", "Book", "BookChapter" ],
-            required  => {
-                "Article" => {
-                    group   => "ARTICLE_YEAR_VOL"
-                }
-            }
+            required  => { "Article" => { group => "ARTICLE_YEAR_VOL" } }
         },
         JournalIssue => {
             type      => "string",
             label     => "Journal issue number",
             ill       => "issue",
             position  => 5,
-            materials => [ "Article" ]
+            materials => ["Article"]
         },
         JournalMonth => {
             type      => "string",
             ill       => "item_date",
             position  => 7,
             label     => "Journal month",
-            materials => [ "Article" ]
+            materials => ["Article"]
         },
         Edition => {
             type      => "string",
@@ -1386,17 +1404,15 @@ sub _validate_borrower {
     while ( $count == 0 ) {
         my $criterium = shift @criteria;
         return ( 0, undef ) if ( "end" eq $criterium );
-        $brws = $patrons->search( { $criterium => $input } );
+        $brws  = $patrons->search( { $criterium => $input } );
         $count = $brws->count;
     }
     if ( $count == 1 ) {
         $brw = $brws->next;
-    }
-    else {
+    } else {
         $brw = $brws;    # found multiple results
     }
     return ( $count, $brw );
 }
-
 
 1;
