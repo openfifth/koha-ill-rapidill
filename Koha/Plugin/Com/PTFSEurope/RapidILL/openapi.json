@@ -1,0 +1,150 @@
+{
+    "/insertrequest": {
+        "post": {
+            "x-mojo-to": "Com::PTFSEurope::RapidILL::Api#InsertRequest",
+            "operationId": "ApiInsertRequestRapidILL",
+            "tags": ["rapidill", "insertrequest"],
+            "parameters": [
+                {
+                    "name": "body",
+                    "in": "body",
+                    "description": "The request payload",
+                    "required": true,
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "borrowerId": {
+                                "description": "The ID of the borrower making the request",
+                                "type": "string"
+                            },
+                            "metadata": {
+                                "description": "The metadata describing the requested material",
+                                "type": "object"
+                            }
+                        },
+                        "additionalProperties": false,
+                        "required": ["borrowerId", "metadata"]
+                    }
+                }
+            ],
+            "produces": [
+                "application/json"
+            ],
+            "responses": {
+                "200": {
+                    "description": "The result of the InsertRequest call to the RapidILL API"
+                }
+            }
+        }
+    },
+    "/updaterequest": {
+        "post": {
+            "x-mojo-to": "Com::PTFSEurope::RapidILL::Api#UpdateRequest",
+            "operationId": "ApiUpdateRequestRapidILL",
+            "tags": ["rapidill", "updaterequest"],
+            "parameters": [
+                {
+                    "name": "body",
+                    "in": "body",
+                    "description": "The request payload",
+                    "required": true,
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "requestId": {
+                                "description": "The ID of the request being updated",
+                                "type": "string"
+                            },
+                            "updateAction": {
+                                "description": "The update action being performed on the request",
+                                "type": "string"
+                            },
+                            "metadata": {
+                                "description": "The metadata describing the requested material",
+                                "type": "object"
+                            }
+                        },
+                        "additionalProperties": false,
+                        "required": ["requestId", "updateAction", "metadata"]
+                    }
+                }
+            ],
+            "produces": [
+                "application/json"
+            ],
+            "responses": {
+                "200": {
+                    "description": "The result of the UpdateRequest call to the RapidILL API"
+                }
+            }
+        }
+    },
+    "/retrievehistory": {
+        "post": {
+            "x-mojo-to": "Com::PTFSEurope::RapidILL::Api#RetrieveHistory",
+            "operationId": "ApiRetrieveHistoryRapidILL",
+            "tags": ["rapidill", "retrievehistory"],
+            "parameters": [
+                {
+                    "name": "body",
+                    "in": "body",
+                    "description": "The request payload",
+                    "required": true,
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "requestId": {
+                                "description": "The ID of the request being updated",
+                                "type": "string"
+                            }
+                        },
+                        "additionalProperties": false,
+                        "required": ["requestId"]
+                    }
+                }
+            ],
+            "produces": [
+                "application/json"
+            ],
+            "responses": {
+                "200": {
+                    "description": "The result of the RetrieveHistory call to the RapidILL API"
+                }
+            }
+        }
+    },
+    "/retrieverequestinfo": {
+        "post": {
+            "x-mojo-to": "Com::PTFSEurope::RapidILL::Api#RetrieveRequestInfo",
+            "operationId": "ApiRetrieveRequestInfoRapidILL",
+            "tags": ["rapidill", "retrieverequestinfo"],
+            "parameters": [
+                {
+                    "name": "body",
+                    "in": "body",
+                    "description": "The request payload",
+                    "required": true,
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "requestId": {
+                                "description": "The ID of the request being requested",
+                                "type": "string"
+                            }
+                        },
+                        "additionalProperties": false,
+                        "required": ["requestId"]
+                    }
+                }
+            ],
+            "produces": [
+                "application/json"
+            ],
+            "responses": {
+                "200": {
+                    "description": "The result of the RetrieveRequestInfo call to the RapidILL API"
+                }
+            }
+        }
+    }
+}

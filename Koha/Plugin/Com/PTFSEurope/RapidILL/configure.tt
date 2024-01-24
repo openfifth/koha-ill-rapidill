@@ -1,0 +1,54 @@
+[% INCLUDE 'doc-head-open.inc' %]
+<title>Koha: RapidILL Plugin: Configuration</title>
+<link rel="stylesheet" type="text/css" href="[% PLUGIN_PATH %]/rapidill.css"></link>
+[% INCLUDE 'doc-head-close.inc' %]
+</head>
+<body>
+[% INCLUDE 'header.inc' %]
+[% INCLUDE 'cat-search.inc' %]
+
+<div id="breadcrumbs"><a href="/cgi-bin/koha/mainpage.pl">Home</a> &rsaquo; <a href="/cgi-bin/koha/plugins/plugins-home.pl">Plugins</a> &rsaquo; RapidILL &rsaquo; Configuration</div>
+
+<div id="doc3">
+    <h3 id="rapidill_config_h3">Koha: RapidILL: Configuration</h3>
+
+    <form id="rapidill_configure" method="get">
+        <input type="hidden" name="class" value="[% CLASS %]"/>
+        <input type="hidden" name="method" value="[% METHOD %]"/>
+        <div id="rapidill_username" class="ill_config_field">
+            <label for="rapidill_username_input">Username: </label>
+            <input id="rapidill_username_input" placeholder="Enter username" type="text" name="username" value="[% config.username | html %]">
+            <p>The username to be used for accessing the RapidILL API</p>
+        </div>
+        <div id="rapidill_password" class="ill_config_field">
+            <label for="rapidill_password_input">Password: </label>
+            <input id="rapidill_password_input" placeholder="Enter password" type="text" name="password" value="[% config.password | html %]">
+            <p>The password to be used for accessing the RapidILL API</p>
+        </div>
+        <div id="rapidill_requesting_rapid_code" class="ill_config_field">
+            <label for="rapidill_requesting_rapid_code_input">Requesting Rapid Code: </label>
+            <input id="rapidill_requesting_rapid_code_input" placeholder="Enter Requesting Rapid Code" type="text" name="requesting_rapid_code" value="[% config.requesting_rapid_code | html %]">
+            <p>The Requesting Rapid Code to be used for accessing the RapidILL API</p>
+        </div>
+        <div id="rapidill_requesting_branch_name" class="ill_config_field">
+            <label for="rapidill_requesting_branch_name">Requesting Branch Name: </label>
+            <input id="rapidill_requesting_branch_name_input" placeholder="Enter Requesting Branch Name" type="text" name="requesting_branch_name" value="[% config.requesting_branch_name | html %]">
+            <p>The Requesting Branch Name to be used for accessing the RapidILL API</p>
+        </div>
+
+        <input type="hidden" name="save" value="1" />
+        <input type="submit" value="Save configuration" />
+    </form>
+
+    <hr/>
+
+    <div id="rapidill_upgrade">
+        <h5>Upgrade status</h5>
+        [% IF last_upgraded %]
+            Plugin was last upgraded on this system on [% last_upgraded | $KohaDates with_hours => 1 %]
+        [% ELSE %]
+            Plugin has never been upgraded.
+        [% END %]
+    </div>
+
+[% INCLUDE 'intranet-bottom.inc' %]

@@ -50,6 +50,15 @@ our $metadata = {
     description     => 'This plugin provides Koha API routes enabling access to the RapidILL API'
 };
 
+sub ill_backend {
+    my ( $class, $args ) = @_;
+    return 'RapidILL';
+}
+
+sub name {
+    return 'RapidILL';
+}
+
 sub new {
     my ( $class, $args ) = @_;
 
@@ -1152,10 +1161,6 @@ sub status_graph {
             ui_method_icon => 'fa-search',
         },
     };
-}
-
-sub name {
-    return "RapidILL";
 }
 
 =head3 _fail

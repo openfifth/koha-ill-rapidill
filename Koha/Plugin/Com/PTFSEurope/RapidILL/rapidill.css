@@ -1,0 +1,24 @@
+#rapidill_config_h3 {
+    margin: 20px;
+}
+
+#rapidill_configure {
+    display: block;
+    margin: 20px;
+}
+
+.rapidill_config_field {
+    padding: 20px 10px;
+    margin: 20px 0;
+    background: #eee;
+    border-radius: 10px;
+    list-style: none;
+}
+
+#rapidill_upgrade {
+    margin: 20px;
+}
+
+input#rapidill_email_input {
+    min-width: 500px;
+}
