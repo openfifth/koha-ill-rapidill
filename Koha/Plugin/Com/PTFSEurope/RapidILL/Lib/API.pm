@@ -41,13 +41,14 @@ sub new {
     my $cgi = new CGI;
 
     my $interface = C4::Context->interface;
-    my $url = $interface eq "intranet" ?
-        C4::Context->preference('staffClientBaseURL') :
-        C4::Context->preference('OPACBaseURL');
+    my $url =
+        $interface eq "intranet"
+        ? C4::Context->preference('staffClientBaseURL')
+        : C4::Context->preference('OPACBaseURL');
 
     # We need a URL to continue, otherwise we can't make the API call to
     # the RapidILL API plugin
-    if (!$url) {
+    if ( !$url ) {
         Koha::Logger->get->warn("Syspref staffClientBaseURL or OPACBaseURL not set!");
         die;
     }
@@ -57,7 +58,7 @@ sub new {
     my $self = {
         ua      => LWP::UserAgent->new,
         cgi     => new CGI,
-        logger  => Koha::Logger->get({ category => 'Koha.Plugin.Com.PTFSEurope.RapidILL.Lib.API' }),
+        logger  => Koha::Logger->get( { category => 'Koha.Plugin.Com.PTFSEurope.RapidILL.Lib.API' } ),
         baseurl => $uri->scheme . "://" . $uri->host . ":" . $uri->port . "/api/v1/contrib/rapidill"
     };
 
@@ -72,20 +73,20 @@ Make a call to the /insertrequest endpoint to create a new request
 =cut
 
 sub InsertRequest {
-    my ($self, $metadata, $borrowernumber) = @_;
+    my ( $self, $metadata, $borrowernumber ) = @_;
 
-    my $borrower = Koha::Patrons->find( $borrowernumber );
+    my $borrower = Koha::Patrons->find($borrowernumber);
 
-    my @name = grep { defined } ($borrower->firstname, $borrower->surname);
+    my @name = grep { defined } ( $borrower->firstname, $borrower->surname );
 
     # Request including passed metadata and credentials
     my $body = {
         borrowerId => $borrowernumber,
-        metadata => {
-            PatronId             => $borrower->borrowernumber,
-            PatronName           => join (" ", @name),
-            IsHoldingsCheckOnly  => 0,
-            DoBlockLocalOnly     => 0,
+        metadata   => {
+            PatronId            => $borrower->borrowernumber,
+            PatronName          => join( " ", @name ),
+            IsHoldingsCheckOnly => 0,
+            DoBlockLocalOnly    => 0,
             %{$metadata}
         }
     };
@@ -97,7 +98,7 @@ sub InsertRequest {
     $request->header( "Content-type" => "application/json" );
     $request->content( encode_json($body) );
 
-    return $self->{ua}->request( $request );
+    return $self->{ua}->request($request);
 }
 
 =head3 UpdateRequest
@@ -107,22 +108,24 @@ Make a call to the updaterequest API endpoint
 =cut
 
 sub UpdateRequest {
-    my ($self, $request_id, $action, $metadata) = @_;
+    my ( $self, $request_id, $action, $metadata ) = @_;
 
     $metadata //= {};
 
-    my $body = encode_json({
-        requestId    => $request_id,
-        updateAction => $action,
-        metadata     => $metadata
-    });
+    my $body = encode_json(
+        {
+            requestId    => $request_id,
+            updateAction => $action,
+            metadata     => $metadata
+        }
+    );
 
     my $request = HTTP::Request->new( 'POST', $self->{baseurl} . "/updaterequest" );
 
     $request->header( "Content-type" => "application/json" );
-    $request->content( $body );
+    $request->content($body);
 
-    return $self->{ua}->request( $request );
+    return $self->{ua}->request($request);
 }
 
 1;

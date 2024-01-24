@@ -37,7 +37,7 @@ use Koha::Plugin::Com::PTFSEurope::RapidILL::Lib::API;
 use Koha::Libraries;
 use Koha::Patrons;
 
-our $VERSION = "1.0.0";
+our $VERSION = "2.0.0";
 
 our $metadata = {
     name            => 'RapidILL',
@@ -47,7 +47,7 @@ our $metadata = {
     minimum_version => '24.05.00.000',
     maximum_version => undef,
     version         => $VERSION,
-    description     => 'This plugin provides Koha API routes enabling access to the RapidILL API'
+    description     => 'This plugin is a RapidILL ILL backend and provides Koha API routes enabling access to the RapidILL API'
 };
 
 sub ill_backend {
@@ -143,7 +143,7 @@ Required method utilized by I<Koha::Illrequest> load_backend
 sub new_backend {
     my ( $class, $params ) = @_;
 
-    my $api = Koha::Illbackends::RapidILL::Lib::API->new($VERSION);
+    my $api = Koha::Plugin::Com::PTFSEurope::RapidILL::Lib::API->new($VERSION);
 
     my $self = { _api => $api };
 

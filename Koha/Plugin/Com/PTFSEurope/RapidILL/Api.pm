@@ -31,7 +31,7 @@ sub InsertRequest {
     # Base request including passed metadata and credentials
     my $req = {
         input => {
-            ClientAppName        => "Koha RapidILL client",
+            ClientAppName => "Koha RapidILL client",
             %{$credentials},
             %{$metadata}
         }
@@ -42,7 +42,7 @@ sub InsertRequest {
     my $response = $client->($req);
 
     return $c->render(
-        status => 200,
+        status  => 200,
         openapi => {
             result => $response->{parameters}->{InsertRequestResult},
             errors => []
@@ -64,8 +64,8 @@ sub UpdateRequest {
     # Base request including passed metadata and credentials
     my $req = {
         input => {
-            RapidRequestId       => $body->{requestId},
-            UpdateAction         => $body->{updateAction},
+            RapidRequestId => $body->{requestId},
+            UpdateAction   => $body->{updateAction},
             %{$credentials},
             %{$metadata}
         }
@@ -76,7 +76,7 @@ sub UpdateRequest {
     my $response = $client->($req);
 
     return $c->render(
-        status => 200,
+        status  => 200,
         openapi => {
             result => $response->{parameters}->{UpdateRequestResult},
             errors => []
@@ -96,7 +96,7 @@ sub RetrieveHistory {
     # Base request including passed metadata and credentials
     my $req = {
         input => {
-            RequestId       => $body->{requestId},
+            RequestId => $body->{requestId},
             %{$credentials}
         }
     };
@@ -106,7 +106,7 @@ sub RetrieveHistory {
     my $response = $client->($req);
 
     return $c->render(
-        status => 200,
+        status  => 200,
         openapi => {
             result => $response->{parameters}->{RetrieveHistoryResult},
             errors => []
@@ -126,7 +126,7 @@ sub RetrieveRequestInfo {
     # Base request including passed metadata and credentials
     my $req = {
         input => {
-            RequestId       => $body->{requestId},
+            RequestId => $body->{requestId},
             %{$credentials}
         }
     };
@@ -136,7 +136,7 @@ sub RetrieveRequestInfo {
     my $response = $client->($req);
 
     return $c->render(
-        status => 200,
+        status  => 200,
         openapi => {
             result => $response->{parameters}->{RetrieveRequestInfoResult},
             errors => []
@@ -147,7 +147,7 @@ sub RetrieveRequestInfo {
 sub _get_credentials {
 
     my $plugin = Koha::Plugin::Com::PTFSEurope::RapidILL->new();
-    my $config = decode_json($plugin->retrieve_data("rapid_config") || {});
+    my $config = decode_json( $plugin->retrieve_data("rapid_config") || {} );
 
     return {
         UserName             => $config->{username},
@@ -162,7 +162,7 @@ sub build_client {
 
     open my $wsdl_fh, "<", dirname(__FILE__) . "/rapidill.wsdl" || die "Can't open file $!";
     my $wsdl_file = do { local $/; <$wsdl_fh> };
-    my $wsdl = XML::Compile::WSDL11->new($wsdl_file);
+    my $wsdl      = XML::Compile::WSDL11->new($wsdl_file);
 
     my $client = $wsdl->compileClient(
         operation => $operation,
