@@ -1,4 +1,4 @@
-package Koha::Illbackends::RapidILL::Lib::API;
+package Koha::Plugin::Com::PTFSEurope::RapidILL::Lib::API;
 
 # Copyright PTFS Europe 2021
 #
@@ -57,7 +57,7 @@ sub new {
     my $self = {
         ua      => LWP::UserAgent->new,
         cgi     => new CGI,
-        logger  => Koha::Logger->get({ category => 'Koha.Illbackends.RapidILL.Lib.API' }),
+        logger  => Koha::Logger->get({ category => 'Koha.Plugin.Com.PTFSEurope.RapidILL.Lib.API' }),
         baseurl => $uri->scheme . "://" . $uri->host . ":" . $uri->port . "/api/v1/contrib/rapidill"
     };
 

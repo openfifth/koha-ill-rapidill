@@ -1,4 +1,4 @@
-package Koha::Illbackends::RapidILL::Base;
+package Koha::Plugin::Com::PTFSEurope::RapidILL;
 
 # Copyright PTFS Europe 2021
 #
@@ -21,17 +21,117 @@ use Modern::Perl;
 use strict;
 use warnings;
 
-use JSON           qw( to_json from_json );
+use base            qw(Koha::Plugins::Base);
+use Koha::DateUtils qw( dt_from_string );
+
+use Cwd qw(abs_path);
+use CGI;
+use LWP::UserAgent;
+use HTTP::Request;
+
+use JSON           qw( encode_json decode_json to_json from_json );
 use File::Basename qw( dirname );
 use C4::Installer;
 
-use Koha::Illbackends::RapidILL::Lib::API;
+use Koha::Plugin::Com::PTFSEurope::RapidILL::Lib::API;
 use Koha::Libraries;
 use Koha::Patrons;
 
 our $VERSION = "1.0.0";
 
+our $metadata = {
+    name            => 'RapidILL',
+    author          => 'PTFS-Europe',
+    date_authored   => '2021-08-20',
+    date_updated    => "2024-01-24",
+    minimum_version => '24.05.00.000',
+    maximum_version => undef,
+    version         => $VERSION,
+    description     => 'This plugin provides Koha API routes enabling access to the RapidILL API'
+};
+
 sub new {
+    my ( $class, $args ) = @_;
+
+    ## We need to add our metadata here so our base class can access it
+    $args->{'metadata'} = $metadata;
+    $args->{'metadata'}->{'class'} = $class;
+
+    ## Here, we call the 'new' method for our base class
+    ## This runs some additional magic and checking
+    ## and returns our actual $self
+    my $self = $class->SUPER::new($args);
+
+    $self->{config} = decode_json( $self->retrieve_data('rapid_config') || '{}' );
+
+    return $self;
+}
+
+sub configure {
+    my ( $self, $args ) = @_;
+    my $cgi = $self->{'cgi'};
+
+    unless ( $cgi->param('save') ) {
+        my $template = $self->get_template( { file => 'configure.tt' } );
+        $template->param( config => $self->{config} );
+        $self->output_html( $template->output() );
+    } else {
+        my %blacklist = ( 'save' => 1, 'class' => 1, 'method' => 1 );
+        my $hashed    = { map { $_ => ( scalar $cgi->param($_) )[0] } $cgi->param };
+        my $p         = {};
+        foreach my $key ( keys %{$hashed} ) {
+            if ( !exists $blacklist{$key} ) {
+                $p->{$key} = $hashed->{$key};
+            }
+        }
+        $self->store_data( { rapid_config => scalar encode_json($p) } );
+        print $cgi->redirect(
+            -url => '/cgi-bin/koha/plugins/run.pl?class=Koha::Plugin::Com::PTFSEurope::RapidILL&method=configure' );
+        exit;
+    }
+}
+
+sub api_routes {
+    my ( $self, $args ) = @_;
+
+    my $spec_str = $self->mbf_read('openapi.json');
+    my $spec     = decode_json($spec_str);
+
+    return $spec;
+}
+
+sub api_namespace {
+    my ($self) = @_;
+
+    return 'rapidill';
+}
+
+sub install() {
+    return 1;
+}
+
+sub upgrade {
+    my ( $self, $args ) = @_;
+
+    my $dt = dt_from_string();
+    $self->store_data( { last_upgraded => $dt->ymd('-') . ' ' . $dt->hms(':') } );
+
+    return 1;
+}
+
+sub uninstall() {
+    return 1;
+}
+
+=head2 ILL backend methods
+
+=head3 new_backend
+
+Required method utilized by I<Koha::Illrequest> load_backend
+
+=cut
+
+sub new_backend {
     my ( $class, $params ) = @_;
 
     my $api = Koha::Illbackends::RapidILL::Lib::API->new($VERSION);
@@ -929,14 +1029,14 @@ sub get_log_template_path {
     return $self->{templates}->{$action};
 }
 
-=head3 metadata
+=head3 backend_metadata
 
 Return a hashref containing canonical values from the key/value
 illrequestattributes store
 
 =cut
 
-sub metadata {
+sub backend_metadata {
     my ( $self, $request ) = @_;
 
     my $attrs  = $request->illrequestattributes;
