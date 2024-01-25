@@ -10,8 +10,9 @@ use XML::Compile::WSDL11;
 use XML::Compile::SOAP12;
 use XML::Compile::SOAP11;
 use XML::Compile::Transport::SOAPHTTP;
-use JSON qw( decode_json );
-
+use JSON         qw( decode_json );
+use MIME::Base64 qw( decode_base64 );
+use URI::Escape  qw ( uri_unescape );
 use Koha::Logger;
 use Koha::Patrons;
 use Mojo::Base 'Mojolicious::Controller';
@@ -142,6 +143,62 @@ sub RetrieveRequestInfo {
             errors => []
         }
     );
+}
+
+sub Backend_Availability {
+    my $c = shift->openapi->valid_input or return;
+
+    my $credentials = _get_credentials();
+
+    my $metadata = $c->validation->param('metadata') || '';
+    $metadata = decode_json( decode_base64( uri_unescape($metadata) ) );
+
+    if ( !$metadata->{'RapidRequestType'} ) {
+        my $fieldmap = Koha::Plugin::Com::PTFSEurope::RapidILL->fieldmap;
+
+        $metadata->{'RapidRequestType'} = Koha::Plugin::Com::PTFSEurope::RapidILL->find_rapid_value(
+            'RapidRequestType',
+            $metadata->{ $fieldmap->{'RapidRequestType'}->{ill} }
+        );
+    }
+
+    if ( !$metadata->{'IsHoldingsCheckOnly'} ){
+        $metadata->{'IsHoldingsCheckOnly'} = 0;
+    }
+
+    if ( !$metadata->{'DoBlockLocalOnly'} ) {
+        $metadata->{'DoBlockLocalOnly'} = 0;
+    }
+
+    # Base request including passed metadata and credentials
+    my $req = {
+        input => {
+            ClientAppName => "Koha RapidILL client",
+            %{$credentials},
+            %{$metadata}
+        }
+    };
+
+    my $client = build_client('InsertRequest');
+
+    my $response = $client->($req);
+    my $result   = $response->{parameters}->{InsertRequestResult};
+
+    if ($result->{'FoundMatch'} == 1 && $result->{'NumberOfAvailableHoldings'} > 0) {
+        return $c->render(
+            status  => 200,
+            openapi => {
+                success => "",
+            }
+        );
+    } else {
+        return $c->render(
+            status  => 404,
+            openapi => {
+                error => $result->{'VerificationNote'},
+            }
+        );
+    }
 }
 
 sub _get_credentials {

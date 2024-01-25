@@ -146,5 +146,35 @@
                 }
             }
         }
+    },
+    "/ill_backend_availability_rapidill": {
+        "get": {
+            "x-mojo-to": "Com::PTFSEurope::RapidILL::Api#Backend_Availability",
+            "operationId": "RapidILLBackendAvailability",
+            "tags": ["ill","backend_availability"],
+            "parameters": [
+                {
+                    "name": "metadata",
+                    "in": "query",
+                    "description": "The metadata to use for checking availability",
+                    "required": true,
+                    "type": "string"
+                }
+            ],
+            "produces": [
+                "application/json"
+            ],
+            "responses": {
+                "200": {
+                    "description": "True or false"
+                },
+                "400": {
+                    "description": "Missing required metadata"
+                },
+                "404": {
+                    "description": "Not found"
+                }
+            }
+        }
     }
 }
