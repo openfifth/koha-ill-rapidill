@@ -3,7 +3,7 @@
 [% USE raw %]
 [% SET koha_version = Koha.Version %]
 
-[% cwd = whole.cwd %]
+[% cwd = whole.cwd _ '/RapidILL' %]
 
 [% IF whole.error %]
   [% IF whole.status == 'missing_fields' %]

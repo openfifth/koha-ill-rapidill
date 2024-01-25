@@ -1,4 +1,4 @@
-[% cwd = whole.cwd %]
+[% cwd = whole.cwd _ '/RapidILL' %]
 
 <h2>Edit request</h2>
 <form method="POST" action="[% here %]" id="edit_form">

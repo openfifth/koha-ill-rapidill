@@ -1,6 +1,6 @@
 [% USE Koha %]
 
-[% cwd = whole.cwd %]
+[% cwd = whole.cwd _ '/RapidILL' %]
 
 [% IF whole.error %]
   [% IF whole.status == 'missing_fields' %]
