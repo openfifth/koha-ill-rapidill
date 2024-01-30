@@ -227,7 +227,7 @@ function handleRequestabilityResponse(response) {
     } else {
         // No local holdings so we need to establish if this item is available for
         // request, but only in intranet
-        if (isOpac()) return;
+        // if (isOpac()) return;
         if (
             response.canRequest.FoundMatch === 1 &&
             response.canRequest.NumberOfAvailableHoldings > 0

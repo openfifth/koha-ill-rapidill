@@ -22,11 +22,6 @@
   [% END %]
 [% END %]
 
-<div role="alert" class="alert alert-warning" id="request-notpossible" style="display: none">
-  Item cannot be requested
-  <div id="localholdings" style="display:none"></div>
-</div>
-
 [% IF whole.stage == "commit" %]
 <p>We have now created your request.</p>
 
@@ -84,6 +79,18 @@
     </ol>
   </fieldset>
   <fieldset class="action">
+    <div id="messageswrapper">
+      <div role="alert" class="alert alert-warning" id="request-lookup" style="display: none">
+        Checking item availability via RapidILL
+        <img src="[% interface | html %]/[% theme | html %]/images/spinner-small.gif" alt="" />
+      </div>
+      <div role="alert" class="alert alert-success" id="request-possible" style="display: none">Item is available for request</div>
+      <div role="alert" class="alert alert-warning" id="request-notpossible" style="display: none">
+        Item cannot be requested
+        <div id="localholdings" style="display:none"></div>
+        <div id="errormessage" style="display:none"></div>
+      </div>
+    </div>
     <input id="rapid_submit" type="submit" value="Make request"/>
     <a class="cancel" href="/cgi-bin/koha/opac-illrequests.pl">Cancel</a>
   </fieldset>
