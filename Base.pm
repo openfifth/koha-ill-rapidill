@@ -460,7 +460,7 @@ sub migrate {
         }
         $new_attributes->{migrated_from} = $original_request->illrequest_id;
         while ( my ( $type, $value ) = each %{$new_attributes} ) {
-            Koha::Illrequestattribute->new(
+            Koha::ILL::Request::Attribute->new(
                 {
                     illrequest_id => $new_request->illrequest_id,
                     type          => $type,
@@ -665,7 +665,7 @@ sub create_illrequestattributes {
                     value         => $att_value,
                     readonly      => 0
                 };
-                Koha::Illrequestattribute->new($data)->store;
+                Koha::ILL::Request::Attribute->new($data)->store;
             }
         }
     }
@@ -687,7 +687,7 @@ sub prep_submission_metadata {
 
     my $metadata_hashref = {};
 
-    if (ref $metadata eq "Koha::Illrequestattributes") {
+    if (ref $metadata eq "Koha::ILL::Request::Attributes") {
         while (my $attr = $metadata->next) {
             $metadata_hashref->{$attr->type} = $attr->value;
         }
@@ -778,7 +778,7 @@ sub create_request {
     if ($response->is_success && $body->{result}->{IsSuccessful}) {
         my $rapid_id = $body->{result}->{RapidRequestId};
         if ($rapid_id && length $rapid_id > 0) {
-            Koha::Illrequestattribute->new({
+            Koha::ILL::Request::Attribute->new({
                 illrequest_id => $submission->illrequest_id,
                 type          => 'RapidRequestId',
                 value         => $rapid_id
