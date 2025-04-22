@@ -3,7 +3,7 @@ package Koha::Illbackends::RapidILL::Processor::SendArticleLink;
 use Modern::Perl;
 use POSIX;
 
-use parent qw(Koha::Illrequest::SupplierUpdateProcessor);
+use parent qw(Koha::ILL::Request::SupplierUpdateProcessor);
 
 sub new {
     my ( $class ) = @_;

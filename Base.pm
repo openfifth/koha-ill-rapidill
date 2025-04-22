@@ -26,7 +26,7 @@ use File::Basename qw( dirname );
 
 use Koha::Illbackends::RapidILL::Lib::API;
 use Koha::Illbackends::RapidILL::Processor::SendArticleLink;
-use Koha::Illrequest::SupplierUpdate;
+use Koha::ILL::Request::SupplierUpdate;
 use Koha::Libraries;
 use Koha::Patrons;
 
@@ -932,7 +932,7 @@ sub metadata {
 
 =head3 attach_processors
 
-Receive a Koha::Illrequest::SupplierUpdate and attach
+Receive a Koha::ILL::Request::SupplierUpdate and attach
 any processors we have for it
 
 =cut
@@ -955,7 +955,7 @@ sub attach_processors {
 Called as a backend capability, receives a local request object
 and gets the latest update from RapidILL using their
 RetrieveRequestInfo request
-Return Koha::Illrequest::SupplierUpdate representing the update
+Return Koha::ILL::Request::SupplierUpdate representing the update
 
 =cut
 
@@ -987,7 +987,7 @@ sub get_supplier_update {
 
     my $body = from_json($response->decoded_content);
     if ($response->is_success && $body->{result}->{IsSuccessful}) {
-        return Koha::Illrequest::SupplierUpdate->new(
+        return Koha::ILL::Request::SupplierUpdate->new(
             'backend',
             $self->name,
             $body->{result},
