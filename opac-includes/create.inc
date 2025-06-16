@@ -27,6 +27,7 @@
 
 [% ELSIF whole.stage == "init" %]
 <form method="POST" id="create_form">
+  [% INCLUDE 'csrf-token.inc' %]
   <fieldset class="rows">
     <legend>Place an interlibrary loan request</legend>
     <input name="stage" id="stage" value="validate" type="hidden"/>
