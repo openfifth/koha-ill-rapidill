@@ -81,6 +81,7 @@
   </fieldset>
   <fieldset class="action">
     <div id="messageswrapper">
+      <p id="rapid_warning" role="alert" class="alert alert-danger" ></p>
       <div role="alert" class="alert alert-warning" id="request-lookup" style="display: none">
         Checking item availability via RapidILL
         <img src="[% interface | html %]/[% theme | html %]/images/spinner-small.gif" alt="" />
