@@ -1138,7 +1138,8 @@ Given the parameters we've been passed, should we create the request
 
 sub _can_create_request {
     my ($params) = @_;
-    return ( defined $params->{'stage'} ) ? 1 : 0;
+
+    return ( defined $params->{'stage'} && $params->{'stage'} eq 'validate' ) ? 1 : 0;
 }
 
 =head3 status_graph
