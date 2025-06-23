@@ -37,14 +37,14 @@ use Koha::Plugin::Com::PTFSEurope::RapidILL::Lib::API;
 use Koha::Libraries;
 use Koha::Patrons;
 
-our $VERSION = "2.0.0";
+our $VERSION = "2.1.0";
 
 our $metadata = {
     name            => 'RapidILL',
     author          => 'PTFS-Europe',
     date_authored   => '2021-08-20',
-    date_updated    => "2024-01-24",
-    minimum_version => '24.05.00.000',
+    date_updated    => "2025-06-21",
+    minimum_version => '24.11.00.000',
     maximum_version => undef,
     version         => $VERSION,
     description     => 'This plugin is a RapidILL ILL backend and provides Koha API routes enabling access to the RapidILL API'
