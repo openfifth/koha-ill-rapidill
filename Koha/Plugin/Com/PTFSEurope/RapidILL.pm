@@ -162,14 +162,15 @@ Required method utilized by I<Koha::ILL::Request> load_backend
 sub new_ill_backend {
     my ( $self, $params ) = @_;
 
-    my $api = Koha::Plugin::Com::PTFSEurope::RapidILL::Lib::API->new($VERSION);
+    my $api        = Koha::Plugin::Com::PTFSEurope::RapidILL::Lib::API->new($VERSION);
+    my $log_tt_dir = dirname(__FILE__) . '/' . name() . '/intra-includes/log/';
 
     $self->{_api} = $api;
 
     $self->{_logger}   = $params->{logger} if ( $params->{logger} );
     $self->{templates} = {
-        'RAPIDILL_REQUEST_FAILED'    => dirname(__FILE__) . '/intra-includes/log/rapidill_request_failed.tt',
-        'RAPIDILL_REQUEST_SUCCEEDED' => dirname(__FILE__) . '/intra-includes/log/rapidill_request_succeeded.tt'
+        'RAPIDILL_REQUEST_FAILED'    => $log_tt_dir . 'rapidill_request_failed.tt',
+        'RAPIDILL_REQUEST_SUCCEEDED' => $log_tt_dir . 'rapidill_request_succeeded.tt'
     };
 
     return $self;
