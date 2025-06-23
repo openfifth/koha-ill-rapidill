@@ -37,7 +37,7 @@ use Koha::Plugin::Com::PTFSEurope::RapidILL::Lib::API;
 use Koha::Libraries;
 use Koha::Patrons;
 
-our $VERSION = "2.1.0";
+our $VERSION = "2.1.1";
 
 our $metadata = {
     name            => 'RapidILL',
