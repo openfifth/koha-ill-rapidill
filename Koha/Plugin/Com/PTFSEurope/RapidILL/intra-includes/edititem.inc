@@ -2,6 +2,7 @@
 
 <h2>Edit request</h2>
 <form method="POST" action="[% here %]" id="edit_form">
+  [% INCLUDE 'csrf-token.inc' %]
   <fieldset class="rows">
     <legend>Edit metadata</legend>
     <input name="illrequest_id" value="[% whole.value.other.illrequest_id %]" type="hidden" />

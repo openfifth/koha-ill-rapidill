@@ -27,6 +27,7 @@
 
 [% ELSIF whole.stage == "init" %]
 <form method="POST" id="create_form">
+  [% INCLUDE 'csrf-token.inc' %]
   <fieldset class="rows">
     <legend>Place an interlibrary loan request</legend>
     <input name="stage" id="stage" value="validate" type="hidden"/>
@@ -91,6 +92,7 @@
         <div id="errormessage" style="display:none"></div>
       </div>
     </div>
+    <input type="hidden" name="op" value="cud-create" />
     <input id="rapid_submit" type="submit" value="Make request"/>
     <a class="cancel" href="/cgi-bin/koha/opac-illrequests.pl">Cancel</a>
   </fieldset>

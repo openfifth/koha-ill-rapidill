@@ -40,6 +40,7 @@
   <div id="errormessage" style="display:none"></div>
 </div>
 <form method="POST" action="[% here %]" id="create_form">
+  [% INCLUDE 'csrf-token.inc' %]
   <fieldset class="rows">
     <legend>Enter metadata</legend>
     <input name="stage" id="stage" value="validate" type="hidden"/>
