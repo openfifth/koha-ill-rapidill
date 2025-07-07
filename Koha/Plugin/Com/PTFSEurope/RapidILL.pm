@@ -916,6 +916,14 @@ sub create_request {
         $metadata
     );
 
+    # We may need to remove fields prior to sending the request
+    my $fields = fieldmap();
+    foreach my $field ( keys %{$fields} ) {
+        if ( $fields->{$field}->{no_submit} ) {
+            delete $metadata->{$field};
+        }
+    }
+
     # Make the request with RapidILL via the koha-plugin-rapidill API
     my $response = $self->{_api}->InsertRequest( $metadata, $submission->borrowernumber );
 
@@ -1245,6 +1253,7 @@ sub _openurl_to_ill {
     my ($params) = @_;
 
     my $transform_metadata = {
+        sid     => 'Sid',
         genre   => 'RapidRequestType',
         content => 'RapidRequestType',
         format  => 'RapidRequestType',
@@ -1335,6 +1344,8 @@ sub fieldmap_sorted {
 All fields expected by the API
 
 Key = API metadata element name
+  hide = Make the field hidden in the form
+  no_submit = Do not pass to RapidILL API
   exclude = Do not include on the entry form
   type = Does an element contain a string value or an array of string values?
   label = Display label
@@ -1385,6 +1396,14 @@ sub fieldmap {
                 "Article" => { group => "ARTICLE_IDENTIFIER" },
                 "Book"    => { group => "BOOK_IDENTIFIER" }
             }
+        },
+        Sid => {
+            hide      => 1,
+            no_submit => 1,
+            type      => "string",
+            label     => "Source identifier",
+            position  => 14,
+            materials => [ "Article", "Book", "BookChapter" ],
         },
         SuggestedIsbns => {
             type      => "array",
