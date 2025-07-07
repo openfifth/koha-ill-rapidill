@@ -34,6 +34,8 @@ use File::Basename qw( dirname );
 use C4::Installer;
 
 use Koha::Plugin::Com::PTFSEurope::RapidILL::Lib::API;
+use Koha::Plugin::Com::PTFSEurope::RapidILL::Processor::SendArticleLink;
+use Koha::ILL::Request::SupplierUpdate;
 use Koha::Libraries;
 use Koha::Patrons;
 
@@ -172,6 +174,8 @@ sub new_ill_backend {
         'RAPIDILL_REQUEST_FAILED'    => $log_tt_dir . 'rapidill_request_failed.tt',
         'RAPIDILL_REQUEST_SUCCEEDED' => $log_tt_dir . 'rapidill_request_succeeded.tt'
     };
+
+    $self->{processors} = [ Koha::Plugin::Com::PTFSEurope::RapidILL::Processor::SendArticleLink->new ];
 
     return $self;
 }
@@ -350,8 +354,7 @@ sub cancel {
     # If the cancellation was successful, note that in Staff notes
     my $body = from_json( $response->decoded_content );
     if ( $response->is_success && $body->{result}->{IsSuccessful} ) {
-        $params->{request}
-            ->notesstaff( join( "\n\n", ( $params->{request}->notesstaff || "", "Cancelled with RapidILL" ) ) )->store;
+        $params->{request}->append_to_note("Cancelled with RapidILL");
         return {
             cwd    => dirname(__FILE__),
             method => "cancel",
@@ -362,15 +365,8 @@ sub cancel {
 
     # The call to RapidILL failed for some reason. Add the message we got back from the API
     # to the submission's Staff Notes
-    $params->{request}->notesstaff(
-        join(
-            "\n\n",
-            (
-                $params->{request}->notesstaff || "",
-                "RapidILL request cancellation failed:\n" . $body->{result}->{VerificationNote} || ""
-            )
-        )
-    )->store;
+    $params->{request}
+        ->append_to_note( "RapidILL request cancellation failed:\n" . $body->{result}->{VerificationNote} );
 
     # Return the message
     return {
@@ -964,12 +960,7 @@ sub create_request {
 
     # The call to RapidILL failed for some reason. Add the message we got back from the API
     # to the submission's Staff Notes
-    $submission->notesstaff(
-        join(
-            "\n\n",
-            ( $submission->notesstaff || "", "RapidILL request failed:\n" . $body->{result}->{VerificationNote} || "" )
-        )
-    )->store;
+    $submission->append_to_note( "RapidILL request failed:\n" . $body->{result}->{VerificationNote} );
 
     # Log the outcome
     $self->log_request_outcome(
@@ -1106,6 +1097,72 @@ sub backend_metadata {
     return $metadata;
 }
 
+=head3 attach_processors
+
+Receive a Koha::ILL::Request::SupplierUpdate and attach
+any processors we have for it
+
+=cut
+
+sub attach_processors {
+    my ( $self, $update ) = @_;
+
+    foreach my $processor ( @{ $self->{processors} } ) {
+        if (   $processor->{target_source_type} eq $update->{source_type}
+            && $processor->{target_source_name} eq $update->{source_name} )
+        {
+            $update->attach_processor($processor);
+        }
+    }
+}
+
+=head3 get_supplier_update
+
+Called as a backend capability, receives a local request object
+and gets the latest update from RapidILL using their
+RetrieveRequestInfo request
+Return Koha::ILL::Request::SupplierUpdate representing the update
+
+=cut
+
+sub get_supplier_update {
+    my ( $self, $params ) = @_;
+
+    my $request = $params->{request};
+    my $delay   = $params->{delay};
+
+    # Find the submission's Rapid ID
+    my $rapid_request_id = $request->illrequestattributes->find(
+        {
+            illrequest_id => $request->illrequest_id,
+            type          => "RapidRequestId"
+        }
+    );
+
+    if ( !$rapid_request_id ) {
+
+        # No Rapid request, we can't do anything
+        print "Request " . $request->illrequest_id . " does not contain a RapidRequestId\n";
+        return;
+    }
+
+    if ($delay) {
+        sleep($delay);
+    }
+
+    my $response = $self->{_api}->RetrieveRequestInfo( $rapid_request_id->value );
+
+    my $body = from_json( $response->decoded_content );
+    if ( $response->is_success && $body->{result}->{IsSuccessful} ) {
+        return Koha::ILL::Request::SupplierUpdate->new(
+            'backend',
+            $self->name,
+            $body->{result},
+            $request
+        );
+    }
+}
+
 =head3 capabilities
 
     $capability = $backend->capabilities($name);
@@ -1134,7 +1191,8 @@ sub capabilities {
 
         # This is required for compatibility
         # with Koha versions prior to bug 33716
-        should_display_availability => sub { _can_create_request(@_) }
+        should_display_availability => sub { _can_create_request(@_) },
+        get_supplier_update => sub { $self->get_supplier_update(@_) }
     };
     return $capabilities->{$name};
 }
