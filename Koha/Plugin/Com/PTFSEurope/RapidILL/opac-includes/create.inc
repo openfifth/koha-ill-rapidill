@@ -22,11 +22,6 @@
   [% END %]
 [% END %]
 
-<div role="alert" class="alert alert-warning" id="request-notpossible" style="display: none">
-  Item cannot be requested
-  <div id="localholdings" style="display:none"></div>
-</div>
-
 [% IF whole.stage == "commit" %]
 <p>We have now created your request.</p>
 
@@ -91,6 +86,10 @@
     </ol>
   </fieldset>
   <fieldset class="action">
+    <div role="alert" class="alert alert-warning" id="request-notpossible" style="display: none">
+      Item cannot be requested
+      <div id="localholdings" style="display:none"></div>
+    </div>
     <input type="hidden" name="op" value="cud-create" />
     <input id="rapid_submit" type="submit" value="Make request"/>
     <a class="cancel" href="/cgi-bin/koha/opac-illrequests.pl">Cancel</a>
