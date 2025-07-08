@@ -8,6 +8,8 @@ use File::Basename qw( dirname );
 use XML::Compile;
 use XML::Compile::WSDL11;
 use XML::Compile::SOAP12;
+use XML::Compile::SOAP11;
+use XML::Compile::Transport::SOAPHTTP;
 use JSON         qw( decode_json );
 use MIME::Base64 qw( decode_base64 );
 use URI::Escape  qw ( uri_unescape );
