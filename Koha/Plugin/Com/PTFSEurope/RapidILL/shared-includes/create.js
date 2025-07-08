@@ -116,10 +116,6 @@ function requestability(messages) {
 
     if (messages.length > 0) return;
 
-    if (isOpac()) {
-        $("#create_form .action").children().not("#messageswrapper").hide();
-    }
-
     $('#errormessage').empty().css('display', 'none');
     $('#localholdings').empty().css('display', 'none');
     $('#request-lookup').css('display', 'none');
@@ -242,9 +238,6 @@ function handleRequestabilityResponse(response) {
             $('#errormessage').append('<span>' + response.canRequest.VerificationNote.replace('\n', ', ') + '</span>').show();
             $('#request-notpossible').css('display', 'block');
         }
-    }
-    if (isOpac()) {
-      $("#create_form .action").children().not("#messageswrapper").show();
     }
 };
 

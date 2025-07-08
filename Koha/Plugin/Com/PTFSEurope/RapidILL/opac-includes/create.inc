@@ -107,8 +107,6 @@
 [% BLOCK backend_jsinclude %]
 <script>
   document.addEventListener('DOMContentLoaded', function(){
-    $("#create_form .action").children().not("#messageswrapper").hide();
-
     // Fields that are not in groups, but cannot be empty
     var notEmpty = [ ];
 
