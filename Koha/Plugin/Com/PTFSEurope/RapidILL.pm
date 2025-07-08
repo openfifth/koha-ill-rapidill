@@ -43,7 +43,7 @@ our $VERSION = "2.1.1";
 
 our $metadata = {
     name            => 'RapidILL',
-    author          => 'PTFS-Europe',
+    author          => 'Open Fifth',
     date_authored   => '2021-08-20',
     date_updated    => "2025-06-21",
     minimum_version => '24.11.00.000',
