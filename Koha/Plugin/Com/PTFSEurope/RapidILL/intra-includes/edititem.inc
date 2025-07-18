@@ -7,7 +7,7 @@
     <legend>Edit metadata</legend>
     <input name="illrequest_id" value="[% whole.value.other.illrequest_id %]" type="hidden" />
     <input name="stage" id="stage" value="form" type="hidden"/>
-    <input name="method" id="method" value="edititem" type="hidden"/>
+    <input name="op" id="op" value="cud-edititem" type="hidden"/>
     <input name="backend" id="backend" value="RapidILL" type="hidden"/>
     <ol>
       <li>
