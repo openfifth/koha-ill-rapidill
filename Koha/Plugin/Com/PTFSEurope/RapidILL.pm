@@ -1523,7 +1523,7 @@ sub fieldmap {
             label => {
                 Article     => "Journal title",
                 Book        => "Book title",
-                BookChapter => "Book chapter title / number"
+                BookChapter => "Book title"
             },
             ill       => "title",
             position  => 0,
