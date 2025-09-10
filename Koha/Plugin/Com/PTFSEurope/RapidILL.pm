@@ -202,6 +202,7 @@ sub create {
         status         => "",
         message        => "",
         error          => 0,
+        plugin_config  => $self->{config},
         field_map      => $self->fieldmap_sorted,
         field_map_json => to_json( $self->fieldmap() )
     };
@@ -749,6 +750,7 @@ sub create_submission {
     $request->backend( $self->name );
     $request->placed( DateTime->now );
     $request->updated( DateTime->now );
+    $request->notesopac( $params->{other}->{notesopac} );
 
     $request->store;
 

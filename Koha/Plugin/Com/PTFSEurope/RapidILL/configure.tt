@@ -56,6 +56,20 @@
                         </li>
                     </ol>
                 </div>
+                <legend>OPAC form</legend>
+                <div class="row">
+                    <ol>
+                        <li>
+                            <label for="opacnotes_field">Show opacnotes field: </label>
+                            [% IF config.opacnotes_field %]
+                                <input id="opacnotes_field" class="required_input" type="checkbox" checked name="opacnotes_field">
+                            [% ELSE %]
+                                <input id="opacnotes_field" class="required_input" type="checkbox" name="opacnotes_field">
+                            [% END %]
+                            <a href="#" data-bs-toggle="tooltip" title="Show opacnotes field on OPAC create form"><i class="fa-solid fa-circle-question"></i></a>
+                        </li>
+                    </ol>
+                </div>
                 <input type="hidden" name="save" value="1" />
                 <input class="btn btn-primary" type="submit" value="Save configuration" />
             </fieldset>

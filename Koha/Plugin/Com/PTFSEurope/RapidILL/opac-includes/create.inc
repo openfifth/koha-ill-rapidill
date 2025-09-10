@@ -67,6 +67,17 @@
       [% END %]
     </ol>
   </fieldset>
+  [% IF whole.plugin_config.opacnotes_field %]
+    <fieldset class="rows">
+      <legend>Additional information:</legend>
+      <ol>
+        <li>
+          <label for="notesopac">Notes:</label>
+          <textarea id="notesopac" name="notesopac" rows="5" cols="50"></textarea>
+        </li>
+      </ol>
+    </fieldset>
+  [% END %]
   <fieldset class="rows">
     <legend>Patron options</legend>
     <ol>
