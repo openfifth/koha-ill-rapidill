@@ -1,44 +1,65 @@
+[% USE raw %]
 [% INCLUDE 'doc-head-open.inc' %]
-<title>Koha: RapidILL Plugin: Configuration</title>
-<link rel="stylesheet" type="text/css" href="[% PLUGIN_PATH %]/rapidill.css"></link>
-[% INCLUDE 'doc-head-close.inc' %]
-</head>
-<body>
-[% INCLUDE 'header.inc' %]
-[% INCLUDE 'cat-search.inc' %]
+    <title>Koha: RapidILL Plugin: Configuration</title>
+    [% INCLUDE 'doc-head-close.inc' %]
+    </head>
 
-<div id="breadcrumbs"><a href="/cgi-bin/koha/mainpage.pl">Home</a> &rsaquo; <a href="/cgi-bin/koha/plugins/plugins-home.pl">Plugins</a> &rsaquo; RapidILL &rsaquo; Configuration</div>
+    <body>
+    [% WRAPPER 'header.inc' %]
+        [% INCLUDE 'cat-search.inc' %]
+    [% END %]
 
-<div id="doc3">
-    <h3 id="rapidill_config_h3">Koha: RapidILL: Configuration</h3>
+    [% WRAPPER 'sub-header.inc' %]
+        [% WRAPPER breadcrumbs %]
+            [% WRAPPER breadcrumb_item %]
+                <a href="/cgi-bin/koha/plugins/plugins-home.pl">Plugins</a>
+            [% END %]
+            [% WRAPPER breadcrumb_item %]
+                <a href="/cgi-bin/koha/plugins/run.pl?class=Koha%3A%3APlugin%3A%3ACom%3A%3APTFSEurope%3A%3ARapidILL&method=configure">RapidILL</a>
+            [% END %]
+        [% END #/ WRAPPER breadcrumbs %]
+    [% END #/ WRAPPER sub-header.inc %]
 
-    <form id="rapidill_configure" method="get">
-        <input type="hidden" name="class" value="[% CLASS %]"/>
-        <input type="hidden" name="method" value="[% METHOD %]"/>
-        <div id="rapidill_username" class="ill_config_field">
-            <label for="rapidill_username_input">Username: </label>
-            <input id="rapidill_username_input" placeholder="Enter username" type="text" name="username" value="[% config.username | html %]">
-            <p>The username to be used for accessing the RapidILL API</p>
-        </div>
-        <div id="rapidill_password" class="ill_config_field">
-            <label for="rapidill_password_input">Password: </label>
-            <input id="rapidill_password_input" placeholder="Enter password" type="text" name="password" value="[% config.password | html %]">
-            <p>The password to be used for accessing the RapidILL API</p>
-        </div>
-        <div id="rapidill_requesting_rapid_code" class="ill_config_field">
-            <label for="rapidill_requesting_rapid_code_input">Requesting Rapid Code: </label>
-            <input id="rapidill_requesting_rapid_code_input" placeholder="Enter Requesting Rapid Code" type="text" name="requesting_rapid_code" value="[% config.requesting_rapid_code | html %]">
-            <p>The Requesting Rapid Code to be used for accessing the RapidILL API</p>
-        </div>
-        <div id="rapidill_requesting_branch_name" class="ill_config_field">
-            <label for="rapidill_requesting_branch_name">Requesting Branch Name: </label>
-            <input id="rapidill_requesting_branch_name_input" placeholder="Enter Requesting Branch Name" type="text" name="requesting_branch_name" value="[% config.requesting_branch_name | html %]">
-            <p>The Requesting Branch Name to be used for accessing the RapidILL API</p>
-        </div>
-
-        <input type="hidden" name="save" value="1" />
-        <input type="submit" value="Save configuration" />
-    </form>
+<div class="main container-fluid">
+    <div class="row">
+        <div class="col-md-10 order-md-2 order-sm-1">
+            <h1>RapidILL configuration</h1>
+            [% IF saved %]
+                <div class="alert alert-info">Configuration saved</div>
+            [% END %]
+        <form id="IncDocs_configure" method="get">
+            <fieldset class="rows">
+                <legend>API credentials</legend>
+                <div class="row">
+                    <ol>
+                        <input type="hidden" name="class" value="[% CLASS %]"/>
+                        <input type="hidden" name="method" value="[% METHOD %]"/>
+                        <li id="rapidill_username" class="ill_config_field">
+                            <label for="rapidill_username_input">Username: </label>
+                            <input id="rapidill_username_input" placeholder="Enter username" type="text" name="username" value="[% config.username | html %]">
+                            <a href="#" data-bs-toggle="tooltip" title="The username to be used for accessing the RapidILL API"><i class="fa-solid fa-circle-question"></i></a>
+                        </li>
+                        <li id="rapidill_password" class="ill_config_field">
+                            <label for="rapidill_password_input">Password: </label>
+                            <input id="rapidill_password_input" placeholder="Enter password" type="text" name="password" value="[% config.password | html %]">
+                            <a href="#" data-bs-toggle="tooltip" title="The password to be used for accessing the RapidILL API"><i class="fa-solid fa-circle-question"></i></a>
+                        </li>
+                        <li id="rapidill_requesting_rapid_code" class="ill_config_field">
+                            <label for="rapidill_requesting_rapid_code_input">Requesting Rapid Code: </label>
+                            <input id="rapidill_requesting_rapid_code_input" placeholder="Enter Requesting Rapid Code" type="text" name="requesting_rapid_code" value="[% config.requesting_rapid_code | html %]">
+                            <a href="#" data-bs-toggle="tooltip" title="The Requesting Rapid Code to be used for accessing the RapidILL API"><i class="fa-solid fa-circle-question"></i></a>
+                        </li>
+                        <li id="rapidill_requesting_branch_name" class="ill_config_field">
+                            <label for="rapidill_requesting_branch_name">Requesting Branch Name: </label>
+                            <input id="rapidill_requesting_branch_name_input" placeholder="Enter Requesting Branch Name" type="text" name="requesting_branch_name" value="[% config.requesting_branch_name | html %]">
+                            <a href="#" data-bs-toggle="tooltip" title="The Requesting Branch Name to be used for accessing the RapidILL API"><i class="fa-solid fa-circle-question"></i></a>
+                        </li>
+                    </ol>
+                </div>
+                <input type="hidden" name="save" value="1" />
+                <input class="btn btn-primary" type="submit" value="Save configuration" />
+            </fieldset>
+        </form>
 
     <hr/>
 
