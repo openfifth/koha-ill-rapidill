@@ -153,21 +153,34 @@ sub Backend_Availability {
     my $metadata = $c->validation->param('metadata') || '';
     $metadata = decode_json( decode_base64( uri_unescape($metadata) ) );
 
-    if ( !$metadata->{'RapidRequestType'} ) {
-        my $fieldmap = Koha::Plugin::Com::PTFSEurope::RapidILL->fieldmap;
+    my $rapid_metadata;
+    foreach my $key (keys %$metadata) {
+        if ( $key eq 'type' ) {
+            $rapid_metadata->{'RapidRequestType'} = Koha::Plugin::Com::PTFSEurope::RapidILL->find_rapid_value(
+                'RapidRequestType',
+                $metadata->{type}
+            );
+            next;
+        }
+        my $rapid_key = Koha::Plugin::Com::PTFSEurope::RapidILL->find_rapid_property($key, 1);
+        if($rapid_key){
+            $rapid_metadata->{$rapid_key} = $metadata->{$key} if $rapid_key;
+        }
+    }
 
-        $metadata->{'RapidRequestType'} = Koha::Plugin::Com::PTFSEurope::RapidILL->find_rapid_value(
-            'RapidRequestType',
-            $metadata->{ $fieldmap->{'RapidRequestType'}->{ill} }
+    $rapid_metadata = Koha::Plugin::Com::PTFSEurope::RapidILL->prepare_rapid_fields( $rapid_metadata, undef, 1 );
+    $rapid_metadata->{'IsHoldingsCheckOnly'} = JSON::PP::true;
+    $rapid_metadata->{'DoBlockLocalOnly'}    = JSON::PP::false;
+
+    if ( $metadata->{published_date} =~ /^(\d{4})-(\d{1,2})(?:-(\d{1,2}))?$/ ) {
+        $rapid_metadata->{JournalMonth} = $2;
+    } else {
+        return $c->render(
+            status  => 404,
+            openapi => {
+                error => 'Missing month in publication date: ' . $metadata->{published_date},
+            }
         );
-    }
-
-    if ( !$metadata->{'IsHoldingsCheckOnly'} ){
-        $metadata->{'IsHoldingsCheckOnly'} = 0;
-    }
-
-    if ( !$metadata->{'DoBlockLocalOnly'} ) {
-        $metadata->{'DoBlockLocalOnly'} = 0;
     }
 
     # Base request including passed metadata and credentials
@@ -175,7 +188,7 @@ sub Backend_Availability {
         input => {
             ClientAppName => "Koha RapidILL client",
             %{$credentials},
-            %{$metadata}
+            %{$rapid_metadata}
         }
     };
 
@@ -184,20 +197,35 @@ sub Backend_Availability {
     my $response = $client->($req);
     my $result   = $response->{parameters}->{InsertRequestResult};
 
-    if ($result->{'FoundMatch'} == 1 && $result->{'NumberOfAvailableHoldings'} > 0) {
+    if ($result->{'LocalHoldings'} && $result->{'LocalHoldings'}->{'LocalHoldingItem'} && length $result->{'LocalHoldings'}->{'LocalHoldingItem'} > 0 ) {
         return $c->render(
             status  => 200,
             openapi => {
-                success => "",
+                success => "Item is available locally",
             }
         );
     } else {
-        return $c->render(
-            status  => 404,
-            openapi => {
-                error => $result->{'VerificationNote'},
-            }
-        );
+        $req->{input}->{'PatronNotes'} = 'HOLDING_CHECK_DO_REMOTE_SEARCH';
+
+        my $second_client = build_client('InsertRequest');
+        my $second_response = $second_client->($req);
+        $result = $second_response->{parameters}->{InsertRequestResult};
+
+        if ( $result->{'FoundMatch'} == 1 && $result->{'NumberOfAvailableHoldings'} > 0 ) {
+            return $c->render(
+                status  => 200,
+                openapi => {
+                    success => "Item is available for request",
+                }
+            );
+        } else {
+            return $c->render(
+                status  => 404,
+                openapi => {
+                    error => $result->{'VerificationNote'},
+                }
+            );
+        }
     }
 }
 
