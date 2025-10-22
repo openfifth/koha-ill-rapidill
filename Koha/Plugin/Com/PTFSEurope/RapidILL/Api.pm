@@ -172,15 +172,26 @@ sub Backend_Availability {
     $rapid_metadata->{'IsHoldingsCheckOnly'} = JSON::PP::true;
     $rapid_metadata->{'DoBlockLocalOnly'}    = JSON::PP::false;
 
-    if ( $metadata->{published_date} =~ /^(\d{4})-(\d{1,2})(?:-(\d{1,2}))?$/ ) {
-        $rapid_metadata->{JournalMonth} = $2;
-    } else {
+    if ( !$rapid_metadata->{SuggestedIsbns} && !$rapid_metadata->{SuggestedIssns} ){
         return $c->render(
             status  => 404,
             openapi => {
-                error => 'Missing month in publication date: ' . $metadata->{published_date},
+                error => 'Missing either ISBN or ISSN',
             }
         );
+    }
+
+    if ( $rapid_metadata->{SuggestedIssns} ){
+        if ( $metadata->{published_date} =~ /^(\d{4})-(\d{1,2})(?:-(\d{1,2}))?$/ ) {
+            $rapid_metadata->{JournalMonth} = $2;
+        } else {
+            return $c->render(
+                status  => 404,
+                openapi => {
+                    error => 'Missing month in publication date: ' . $metadata->{published_date},
+                }
+            );
+        }
     }
 
     # Base request including passed metadata and credentials
