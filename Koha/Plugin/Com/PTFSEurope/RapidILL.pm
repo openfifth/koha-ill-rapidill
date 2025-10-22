@@ -849,6 +849,12 @@ sub prep_submission_metadata {
         $metadata_hashref = $metadata;
     }
 
+    return $self->prepare_rapid_fields($metadata_hashref, $return);
+}
+
+sub prepare_rapid_fields {
+    my ( $self, $metadata_hashref, $return, $skip_material_check ) = @_;
+
     # Get our canonical field list
     my $fields = $self->fieldmap;
 
@@ -858,7 +864,7 @@ sub prep_submission_metadata {
     foreach my $field ( keys %{$fields} ) {
 
         # If this field is used in the selected material type and is populated
-        if (   grep( /^$type$/, @{ $fields->{$field}->{materials} } )
+        if (   ( grep( /^$type$/, @{ $fields->{$field}->{materials} } ) || $skip_material_check )
             && $metadata_hashref->{$field}
             && length $metadata_hashref->{$field} > 0 )
         {
