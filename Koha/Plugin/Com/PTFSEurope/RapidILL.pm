@@ -754,12 +754,30 @@ sub create_submission {
 
     $request->store;
 
-    # Store the request attributes
-    $self->create_illrequestattributes( $request, $params->{other} );
+    if ($params->{other}->{confirm_auto_submitted}){
+        my $rapid_equivalent;
+        my %equivalent_metadata;
+        foreach my $attr (keys %{$params->{other}}) {
+            if($attr eq 'type' ) {
+                $equivalent_metadata{'RapidRequestType'} = $self->find_rapid_value(
+                    'RapidRequestType',
+                    $params->{other}->{$attr}
+                );
+                next;
+            }
 
-    # Now store the core equivalents
-    $self->create_illrequestattributes( $request, $params->{other}, 1 );
+            $rapid_equivalent = $self->find_rapid_property( $attr );
+            $equivalent_metadata{$rapid_equivalent} = $params->{other}->{$attr};
+        }
+        $self->create_illrequestattributes( $request, \%equivalent_metadata, 0 );
+        $self->create_illrequestattributes( $request, \%equivalent_metadata, 0 );
+    } else {
+        # Store the request attributes
+        $self->create_illrequestattributes( $request, $params->{other}, 0 );
 
+        # Now store the core equivalents
+        $self->create_illrequestattributes( $request, $params->{other}, 1 );
+    }
     return $request;
 }
 
