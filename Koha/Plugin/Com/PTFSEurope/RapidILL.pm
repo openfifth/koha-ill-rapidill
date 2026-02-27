@@ -770,7 +770,7 @@ sub create_submission {
             $equivalent_metadata{$rapid_equivalent} = $params->{other}->{$attr};
         }
         $self->create_illrequestattributes( $request, \%equivalent_metadata, 0 );
-        $self->create_illrequestattributes( $request, \%equivalent_metadata, 0 );
+        $self->create_illrequestattributes( $request, \%equivalent_metadata, 1 );
     } else {
         # Store the request attributes
         $self->create_illrequestattributes( $request, $params->{other}, 0 );
