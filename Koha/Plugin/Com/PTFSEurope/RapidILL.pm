@@ -474,10 +474,20 @@ sub edititem {
                 # First insert our RapidILL fields
                 foreach my $field ( %{$other} ) {
                     my $value = $other->{$field};
+
+                    my $ill_field = ( $fields->{$field}->{ill_map} && $fields->{$field}->{ill_map}->{$type} )
+                                            ? $fields->{$field}->{ill_map}->{$type}
+                                            : $fields->{$field}->{ill};
+
                     if (   grep( /^$type$/, @{ $fields->{$field}->{materials} } )
                         && $other->{$field}
+                        && $ill_field
                         && length $other->{$field} > 0 )
                     {
+                        $value =
+                            ( $fields->{$field}->{value_map} )
+                            ? $fields->{$field}->{value_map}->{$value}
+                            : $value;
                         my @bind = ( $submission->id, $field, $value, 0 );
                         $dbh->do(
                             q|
@@ -806,6 +816,10 @@ sub create_illrequestattributes {
     # Iterate our list of fields
     foreach my $field ( keys %{$fields} ) {
 
+        my $ill_field = ( $fields->{$field}->{ill_map} && $fields->{$field}->{ill_map}->{$type} )
+                    ? $fields->{$field}->{ill_map}->{$type}
+                    : $fields->{$field}->{ill};
+
         # If this field is used in the selected material type
         if (
             grep( /^$type$/, @{ $fields->{$field}->{materials} } )
@@ -813,12 +827,12 @@ sub create_illrequestattributes {
 
             # If we're working with core metadata, check if this field
             # has a core equivalent
-            ( ( $core && $fields->{$field}->{ill} ) || !$core )
+            ( ( $core && $ill_field ) || !$core )
             && $metadata->{$field}
             && length $metadata->{$field} > 0
             )
         {
-            my $att_type = $core ? $fields->{$field}->{ill} : $field;
+            my $att_type = $core ? $ill_field : $field;
 
             # We might need to map the attribute value to our core equivalent
             my $att_value =
@@ -1299,10 +1313,20 @@ sub find_rapid_property {
     my ( $self, $core ) = @_;
     my $fields = $self->fieldmap;
     foreach my $field ( keys %{$fields} ) {
-        if ( $fields->{$field}->{ill} && $fields->{$field}->{ill} eq $core ) {
+        my $ill     = $fields->{$field}->{ill};
+        my $ill_map = $fields->{$field}->{ill_map};
+
+        if ( $ill_map ) {
+            foreach my $mat_type ( keys %{$ill_map} ) {
+                return $field if $ill_map->{$mat_type} eq $core;
+            }
+        }
+
+        if ( $ill && $ill eq $core ) {
             return $field;
         }
     }
+    return;
 }
 
 =head3 find_rapid_value
@@ -1512,6 +1536,9 @@ sub fieldmap {
                 BookChapter => "Book chapter title / number"
             },
             ill       => "article_title",
+            ill_map   => {
+                BookChapter => "chapter"
+            },
             position  => 1,
             materials => [ "Article", "BookChapter" ],
             required  => {
@@ -1527,6 +1554,10 @@ sub fieldmap {
                 BookChapter => "Book author"
             },
             ill       => "article_author",
+            ill_map => {
+                Book        => "author",
+                BookChapter => "chapter_author"
+            },
             position  => 2,
             materials => [ "Article", "Book", "BookChapter" ]
         },
