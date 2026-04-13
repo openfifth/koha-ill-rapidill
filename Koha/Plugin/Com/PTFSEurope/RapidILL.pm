@@ -39,7 +39,7 @@ use Koha::ILL::Request::SupplierUpdate;
 use Koha::Libraries;
 use Koha::Patrons;
 
-our $VERSION = "2.3.4";
+our $VERSION = "2.3.5";
 
 our $metadata = {
     name            => 'RapidILL',
