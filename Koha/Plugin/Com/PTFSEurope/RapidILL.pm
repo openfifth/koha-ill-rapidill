@@ -868,6 +868,15 @@ sub _get_request_details {
         }
     }
 
+    if ( $other->{published_date} ) {
+        $return->{published_date} = $other->{published_date};
+
+        if ( $other->{published_date} =~ /^(\d{4})-(\d{1,2})(?:-(\d{1,2}))?$/ ) {
+            $return->{JournalMonth} = $2;
+            $return->{item_date} = $2;
+        }
+    }
+
     return $return;
 }
 
