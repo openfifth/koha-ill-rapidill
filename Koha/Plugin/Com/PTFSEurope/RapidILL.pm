@@ -452,10 +452,70 @@ sub edititem {
             };
         }
 
-        # ...Populate Illrequestattributes
-        # generate $request_details
-        # We do this with a 'dump all and repopulate approach' inside
-        # a transaction, easier than catering for create, update & delete
+        # 1. Deduce the RapidRequestType
+        my $type = $other->{RapidRequestType};
+        if ( !$type && $other->{type} ) {
+            $type = $self->find_rapid_value( 'RapidRequestType', $other->{type} );
+        }
+        if ( !$type ) {
+            my $existing_type = $submission->illrequestattributes->find( { type => 'RapidRequestType' } );
+            $type = $existing_type ? $existing_type->value : 'Article';
+        }
+
+        # 2. Re-apply our month extraction rule just in case the date was edited
+        if ( $other->{published_date} && $other->{published_date} =~ /^(\d{4})-(\d{1,2})(?:-(\d{1,2}))?$/ ) {
+            $other->{JournalMonth} = $2;
+        }
+
+        # 3. Build a bulletproof hash of attributes to save
+        my %attributes_to_save;
+        $attributes_to_save{RapidRequestType} = $type;
+        $attributes_to_save{type}             = $other->{type} if $other->{type};
+
+        my $fields = $self->fieldmap;
+
+        foreach my $key ( keys %{$other} ) {
+            my $value = $other->{$key};
+
+            # Skip empty values and form metadata
+            next unless defined $value && length $value > 0;
+            next
+                if $key eq 'stage'
+                || $key eq 'method'
+                || $key eq 'change_type'
+                || $key eq 'RapidRequestType'
+                || $key eq 'type'
+                || $key eq 'csrf-token'
+                || $key eq 'op'
+                || $key eq 'backend';
+
+            # Is this key a known core field? (e.g. article_title submitted by Standard form)
+            my $rapid_prop = $self->find_rapid_property($key);
+            if ($rapid_prop) {
+                $attributes_to_save{$rapid_prop} = $value;    # Save as Rapid field
+                $attributes_to_save{$key}        = $value;    # Save as Core field
+            }
+
+            # Or is this key already a Rapid field? (e.g. ArticleTitle submitted by custom form)
+            elsif ( $fields->{$key} ) {
+                $attributes_to_save{$key} = $value;
+
+                my $ill_field =
+                      $fields->{$key}->{ill_map} && $fields->{$key}->{ill_map}->{$type}
+                    ? $fields->{$key}->{ill_map}->{$type}
+                    : $fields->{$key}->{ill};
+
+                if ($ill_field) {
+                    $attributes_to_save{$ill_field} = $value;
+                }
+            }
+
+            # Otherwise, just save it (custom metadata)
+            else {
+                $attributes_to_save{$key} = $value;
+            }
+        }
+
         my $dbh    = C4::Context->dbh;
         my $schema = Koha::Database->new->schema;
         $schema->txn_do(
@@ -467,60 +527,25 @@ sub edititem {
                 |, undef, $submission->id
                 );
 
-                # Insert all current attributes for this request
-                my $type   = $other->{RapidRequestType};
-                my $fields = $self->fieldmap;
+                # Insert our freshly mapped attributes
+                foreach my $key ( keys %attributes_to_save ) {
+                    my $value = $attributes_to_save{$key};
 
-                # First insert our RapidILL fields
-                foreach my $field ( %{$other} ) {
-                    my $value = $other->{$field};
+                    my @bind = (
+                        $submission->id,
+                        column_exists( 'illrequestattributes', 'backend' ) ? "RapidILL" : (),
+                        $key, $value, 0
+                    );
 
-                    my $ill_field = ( $fields->{$field}->{ill_map} && $fields->{$field}->{ill_map}->{$type} )
-                                            ? $fields->{$field}->{ill_map}->{$type}
-                                            : $fields->{$field}->{ill};
-
-                    if (   grep( /^$type$/, @{ $fields->{$field}->{materials} } )
-                        && $other->{$field}
-                        && $ill_field
-                        && length $other->{$field} > 0 )
-                    {
-                        $value =
-                            ( $fields->{$field}->{value_map} )
-                            ? $fields->{$field}->{value_map}->{$value}
-                            : $value;
-                        my @bind = ( $submission->id, $field, $value, 0 );
-                        $dbh->do(
-                            q|
-                            INSERT IGNORE INTO illrequestattributes
-                            (illrequest_id, type, value, readonly) VALUES
-                            (?, ?, ?, ?)
-                        |, undef, @bind
-                        );
-                    }
-                }
-
-                # Now insert our core equivalents
-                foreach my $field ( %{$other} ) {
-                    my $value = $other->{$field};
-                    if (   grep( /^$type$/, @{ $fields->{$field}->{materials} } )
-                        && $other->{$field}
-                        && $fields->{$field}->{ill}
-                        && length $other->{$field} > 0 )
-                    {
-                        # The value might need mapping to a core equivalent
-                        $value =
-                            ( $fields->{$field}->{value_map} )
-                            ? $fields->{$field}->{value_map}->{$value}
-                            : $value;
-                        my @bind = ( $submission->id, $fields->{$field}->{ill}, $value, 0 );
-                        $dbh->do(
-                            q|
-                            INSERT IGNORE INTO illrequestattributes
-                            (illrequest_id, type, value, readonly) VALUES
-                            (?, ?, ?, ?)
-                        |, undef, @bind
-                        );
-                    }
+                    $dbh->do(
+                        q|
+                        INSERT IGNORE INTO illrequestattributes
+                        (illrequest_id, |
+                            . ( column_exists( 'illrequestattributes', 'backend' ) ? q|backend,| : q|| ) . q|
+                         type, value, readonly) VALUES
+                        (| . ( column_exists( 'illrequestattributes', 'backend' ) ? q|?, | : q|| ) . q|?, ?, ?, ?)
+                    |, undef, @bind
+                    );
                 }
             }
         );
