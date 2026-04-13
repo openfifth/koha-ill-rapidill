@@ -39,14 +39,14 @@ use Koha::ILL::Request::SupplierUpdate;
 use Koha::Libraries;
 use Koha::Patrons;
 
-our $VERSION = "2.3.3";
+our $VERSION = "2.3.4";
 
 our $metadata = {
     name            => 'RapidILL',
     author          => 'Open Fifth',
     date_authored   => '2021-08-20',
-    date_updated    => "2026-04-10",
-    minimum_version => '24.11.00.000',
+    date_updated    => "2026-04-13",
+    minimum_version => '25.11.00.000',
     maximum_version => undef,
     version         => $VERSION,
     description     => 'This plugin is a RapidILL ILL backend and provides Koha API routes enabling access to the RapidILL API'
