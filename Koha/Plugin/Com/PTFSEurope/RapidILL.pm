@@ -588,39 +588,25 @@ sub migrate {
         $new_request->store;
 
         # Map from Koha's core fields to our metadata fields
-        my $original_id = $original_request->illrequest_id;
-        my @original_attributes =
-            $original_request->illrequestattributes->search( { illrequest_id => $original_id } )->as_list;
-        my @attributes = keys %{$fields};
+        my $all_attrs = $original_request->extended_attributes->unblessed;
 
         # Look for an equivalent Rapid attribute
         # for every bit of metadata we receive and, if it exists, map it to the
         # new property
         my $new_attributes = {};
-        foreach my $old (@original_attributes) {
-            my $rapid = $self->find_rapid_property( $old->type );
+        foreach my $old (@{$all_attrs}) {
+            my $rapid = $self->find_rapid_property( $old->{type} );
             if ($rapid) {
 
                 # The value may also need mapping
-                my $rapid_value = $self->find_rapid_value( $rapid, $old->value );
-                my $value       = $rapid_value ? $rapid_value : $old->value;
+                my $rapid_value = $self->find_rapid_value( $rapid, $old->{value} );
+                my $value       = $rapid_value ? $rapid_value : $old->{value};
                 $new_attributes->{$rapid} = $value;
             }
         }
-        $new_attributes->{migrated_from} = $original_request->illrequest_id;
-        while ( my ( $type, $value ) = each %{$new_attributes} ) {
-            Koha::ILL::Request::Attribute->new(
-                {
-                    illrequest_id => $new_request->illrequest_id,
+        $new_request->add_or_update_attributes( { 'migrated_from' => $original_request->illrequest_id } );
 
-                    # Check required for compatibility with installations before bug 33970
-                    column_exists( 'illrequestattributes', 'backend' ) ? ( backend => "RapidILL" ) : (),
-                    type     => $type,
-                    value    => $value,
-                    readonly => 0
-                }
-            )->store;
-        }
+        $new_request->add_or_update_attributes($new_attributes);
 
         return {
             error          => 0,
@@ -764,103 +750,106 @@ sub create_submission {
 
     $request->store;
 
-    if ($params->{other}->{confirm_auto_submitted}){
-        my $rapid_equivalent;
-        my %equivalent_metadata;
-        foreach my $attr (keys %{$params->{other}}) {
-            if($attr eq 'type' ) {
-                $equivalent_metadata{'RapidRequestType'} = $self->find_rapid_value(
-                    'RapidRequestType',
-                    $params->{other}->{$attr}
-                );
-                next;
-            }
+    my $request_details = $self->_get_request_details( $params, $params->{other} );
 
-            $rapid_equivalent = $self->find_rapid_property( $attr );
-            $equivalent_metadata{$rapid_equivalent} = $params->{other}->{$attr};
-        }
-        $self->create_illrequestattributes( $request, \%equivalent_metadata, 0 );
-        $self->create_illrequestattributes( $request, \%equivalent_metadata, 1 );
-    } else {
-        # Store the request attributes
-        $self->create_illrequestattributes( $request, $params->{other}, 0 );
+    $request->add_or_update_attributes($request_details);
 
-        # Now store the core equivalents
-        $self->create_illrequestattributes( $request, $params->{other}, 1 );
-    }
     return $request;
 }
 
-=head3
-
-Store metadata for a given request for our Rapid fields
+=head3 _prepare_custom
 
 =cut
 
-sub create_illrequestattributes {
-    my ( $self, $request, $metadata, $core ) = @_;
+sub _prepare_custom {
 
-    # Get the canonical list of metadata fields
-    my $fields = $self->fieldmap;
-
-    my $type = $metadata->{RapidRequestType};
-
-    # Get any existing illrequestattributes for this request,
-    # so we can avoid trying to create duplicates
-    my $existing_attrs = $request->illrequestattributes->unblessed;
-    my $existing_hash  = {};
-    foreach my $a ( @{$existing_attrs} ) {
-        $existing_hash->{ lc $a->{type} } = $a->{value};
+    # Take an arrayref of custom keys and an arrayref
+    # of custom values, return a hashref of them
+    my ( $keys, $values ) = @_;
+    my %out = ();
+    if ($keys) {
+        my @k = split( "\0", $keys );
+        my @v = split( "\0", $values );
+        %out = map { $k[$_] => $v[$_] } 0 .. $#k;
     }
+    return \%out;
+}
 
-    # Iterate our list of fields
-    foreach my $field ( keys %{$fields} ) {
+=head3 _get_request_details
 
-        my $ill_field = ( $fields->{$field}->{ill_map} && $fields->{$field}->{ill_map}->{$type} )
-                    ? $fields->{$field}->{ill_map}->{$type}
-                    : $fields->{$field}->{ill};
+    my $request_details = _get_request_details($params, $other);
 
-        # If this field is used in the selected material type
-        if (
-            grep( /^$type$/, @{ $fields->{$field}->{materials} } )
-            &&
+Return the illrequestattributes for a given request
 
-            # If we're working with core metadata, check if this field
-            # has a core equivalent
-            ( ( $core && $ill_field ) || !$core )
-            && $metadata->{$field}
-            && length $metadata->{$field} > 0
-            )
-        {
-            my $att_type = $core ? $ill_field : $field;
+=cut
 
-            # We might need to map the attribute value to our core equivalent
-            my $att_value =
-                ( $core && $fields->{$field}->{value_map} )
-                ? $fields->{$field}->{value_map}->{ $metadata->{$field} }
-                : $metadata->{$field};
+sub _get_request_details {
+    my ( $self, $params, $other ) = @_;
 
-            # If it doesn't already exist for this request
-            if ( !exists $existing_hash->{ lc $att_type } ) {
-                my $data = {
-                    illrequest_id => $request->illrequest_id,
+    # Get custom key / values we've been passed
+    # Prepare them for addition into the Illrequestattribute object
+    my $custom =
+        _prepare_custom( $other->{'custom_key'}, $other->{'custom_value'} );
 
-                    # Check required for compatibility with installations before bug 33970
-                    column_exists( 'illrequestattributes', 'backend' ) ? ( backend => "RapidILL" ) : (),
-                    type     => $att_type,
-                    value    => $att_value,
-                    readonly => 0
-                };
-                Koha::ILL::Request::Attribute->new($data)->store;
+    my $return = {%$custom};
+    my $core   = $self->fieldmap;
+
+    if ( $other->{confirm_auto_submitted} ) {
+        my $rapid_equivalent;
+        foreach my $attr ( keys %{$other} ) {
+            if ( $attr eq 'type' ) {
+                $return->{'RapidRequestType'} = $self->find_rapid_value(
+                    'RapidRequestType',
+                    $other->{$attr}
+                );
+                $return->{'type'} = $other->{$attr};
+                next;
+            }
+
+            $rapid_equivalent = $self->find_rapid_property($attr);
+            if ($rapid_equivalent) {
+                $return->{$rapid_equivalent} = $other->{$attr};
+
+                # Retrieve and assign the core equivalent mapping too
+                my $ill_field =
+                       $core->{$rapid_equivalent}->{ill_map}
+                    && $core->{$rapid_equivalent}->{ill_map}->{ $return->{'RapidRequestType'} }
+                    ? $core->{$rapid_equivalent}->{ill_map}->{ $return->{'RapidRequestType'} }
+                    : $core->{$rapid_equivalent}->{ill};
+
+                $return->{$ill_field} = $other->{$attr} if $ill_field;
+            }
+        }
+    } else {
+        my $type = $other->{RapidRequestType};
+        foreach my $key ( keys %{$core} ) {
+            if ( $other->{$key} && length $other->{$key} > 0 ) {
+                $return->{$key} = $other->{$key};
+
+                # Add core equivalent mapping based on material types
+                my $ill_field =
+                      $core->{$key}->{ill_map} && $core->{$key}->{ill_map}->{$type}
+                    ? $core->{$key}->{ill_map}->{$type}
+                    : $core->{$key}->{ill};
+
+                if ($ill_field) {
+                    my $att_value =
+                        ( $core->{$key}->{value_map} )
+                        ? $core->{$key}->{value_map}->{ $other->{$key} }
+                        : $other->{$key};
+                    $return->{$ill_field} = $att_value;
+                }
             }
         }
     }
+
+    return $return;
 }
 
 =head3 prep_submission_metadata
 
 Given a submission's metadata, probably from a form,
-but maybe as an Illrequestattributes object,
+but maybe as an Koha::ILL::Request::Attributes object,
 and a partly constructed hashref, add any metadata that
 is appropriate for this material type
 
@@ -881,7 +870,47 @@ sub prep_submission_metadata {
         $metadata_hashref = $metadata;
     }
 
-    return $self->prepare_rapid_fields($metadata_hashref, $return);
+    # Get our canonical field list
+    my $fields = $self->fieldmap;
+    my $type   = $metadata_hashref->{RapidRequestType};
+
+    # Iterate our list of fields
+    foreach my $field ( keys %{$fields} ) {
+
+        # If this field is used in the selected material type and is populated
+        if (   grep( /^$type$/, @{ $fields->{$field}->{materials} || [] } )
+            && $metadata_hashref->{$field}
+            && length $metadata_hashref->{$field} > 0 )
+        {
+            $metadata_hashref->{$field} =~ s/  / /g;
+
+            # "array" fields need splitting by space and forming into an array for RapidILL API
+            if ( $fields->{$field}->{type} eq 'array' ) {
+                my @arr = split( / /, $metadata_hashref->{$field} );
+
+                # Needs to be in the form
+                # SuggestedIsbns => { string => [ "1234567890", "0987654321" ] }
+                $return->{$field} = { string => \@arr };
+            } else {
+                $return->{$field} = $metadata_hashref->{$field};
+            }
+        }
+    }
+
+    return $return;
+}
+
+=head3 find_illrequestattribute
+
+=cut
+
+sub find_illrequestattribute {
+    my ( $self, $attributes, $prop ) = @_;
+    foreach my $attr ( @{$attributes} ) {
+        if ( $attr->{type} eq $prop ) {
+            return 1;
+        }
+    }
 }
 
 sub prepare_rapid_fields {
