@@ -181,18 +181,6 @@ sub Backend_Availability {
         );
     }
 
-    if ( $rapid_metadata->{SuggestedIssns} ){
-        if ( $metadata->{published_date} =~ /^(\d{4})-(\d{1,2})(?:-(\d{1,2}))?$/ ) {
-            $rapid_metadata->{JournalMonth} = $2;
-        } else {
-            return $c->render(
-                status  => 404,
-                openapi => {
-                    error => 'Missing month in publication date: ' . $metadata->{published_date},
-                }
-            );
-        }
-    }
 
     # Base request including passed metadata and credentials
     my $req = {
