@@ -39,13 +39,13 @@ use Koha::ILL::Request::SupplierUpdate;
 use Koha::Libraries;
 use Koha::Patrons;
 
-our $VERSION = "2.3.6";
+our $VERSION = "2.3.7";
 
 our $metadata = {
     name            => 'RapidILL',
     author          => 'Open Fifth',
     date_authored   => '2021-08-20',
-    date_updated    => "2026-04-15",
+    date_updated    => "2026-04-22",
     minimum_version => '25.11.00.000',
     maximum_version => undef,
     version         => $VERSION,
