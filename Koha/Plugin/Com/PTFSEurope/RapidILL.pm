@@ -162,8 +162,11 @@ when AutoILLBackendPriority is in use.
 
 sub intranet_js {
     my ( $self, $args ) = @_;
-    my $page = $args->{page} // '';
-    return '' unless $page =~ /ill-requests\.pl/;
+    # page context only available from Bug 40095 (Koha >= 25.05)
+    if ($args) {
+        my $page = $args->{page} // '';
+        return '' unless $page =~ /ill-requests\.pl/;
+    }
     return $self->_autoill_script;
 }
 
