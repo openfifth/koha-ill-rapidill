@@ -153,6 +153,48 @@ sub availability_check_info {
     };
 }
 
+=head3 intranet_js
+
+Inject the RapidILL availability check into the Standard ILL create form
+when AutoILLBackendPriority is in use.
+
+=cut
+
+sub intranet_js {
+    my ( $self, $args ) = @_;
+    my $page = $args->{page} // '';
+    return '' unless $page =~ /ill-requests\.pl/;
+    return $self->_autoill_script;
+}
+
+=head3 opac_js
+
+Inject the RapidILL availability check into the Standard ILL create form
+on the OPAC when AutoILLBackendPriority is in use.
+
+=cut
+
+sub opac_js {
+    my ($self) = @_;
+    return $self->_autoill_script;
+}
+
+sub _autoill_script {
+    my ($self) = @_;
+
+    my $fieldmap_json = to_json( $self->fieldmap() );
+
+    my $js_file = dirname(__FILE__) . '/RapidILL/shared-includes/autoill.js';
+    open( my $fh, '<:encoding(UTF-8)', $js_file ) or return '';
+    my $js = do { local $/; <$fh> };
+    close $fh;
+
+    return qq|<script>
+var rapidILLFieldmap = $fieldmap_json;
+$js
+</script>|;
+}
+
 =head2 ILL backend methods
 
 =head3 new_backend
