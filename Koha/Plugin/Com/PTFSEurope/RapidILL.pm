@@ -35,6 +35,7 @@ use C4::Installer;
 
 use Koha::Plugin::Com::PTFSEurope::RapidILL::Lib::API;
 use Koha::Plugin::Com::PTFSEurope::RapidILL::Processor::SendArticleLink;
+use Koha::ILL::Backend::Standard;
 use Koha::ILL::Request::SupplierUpdate;
 use Koha::Libraries;
 use Koha::Patrons;
@@ -865,6 +866,7 @@ sub _get_request_details {
     my $core   = $self->fieldmap;
 
     if ( $other->{confirm_auto_submitted} ) {
+        my $standard_core_fields = Koha::ILL::Backend::Standard->_get_core_fields;
         my $rapid_equivalent;
         foreach my $attr ( keys %{$other} ) {
             if ( $attr eq 'type' ) {
@@ -888,6 +890,8 @@ sub _get_request_details {
                     : $core->{$rapid_equivalent}->{ill};
 
                 $return->{$ill_field} = $other->{$attr} if $ill_field;
+            } elsif ( $standard_core_fields->{$attr} && length $other->{$attr} ) {
+                $return->{$attr} = $other->{$attr};
             }
         }
     } else {
